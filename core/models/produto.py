@@ -1,5 +1,8 @@
 from django.db import models
 
+from core.models.categoria import Categoria
+from core.models.user import User
+
 
 class Produto(models.Model):
     CONDICAO_CHOICES = [
@@ -17,6 +20,9 @@ class Produto(models.Model):
         choices=CONDICAO_CHOICES,
         default='novo'
     )
+
+    categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE, null=True, blank=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return self.nome
