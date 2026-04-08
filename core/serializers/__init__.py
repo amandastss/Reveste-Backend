@@ -1,2 +1,2 @@
 from .user import UserRegistrationSerializer, UserSerializer
-from .Produto import ProdutoSerializer
+from .produto import ProdutoSerializer
