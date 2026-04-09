@@ -1,2 +1,4 @@
 from .user import UserRegistrationSerializer, UserSerializer
-from .Produto import ProdutoSerializer
+from .produto import ProdutoSerializer
+from .categoria import CategoriaSerializer
+from .buscaImagem import BuscaImagemSerializer  

@@ -1,2 +1,4 @@
 from .user import UserRegistrationView, UserViewSet
-from .Produto import ProdutoViewSet
+from .produto import ProdutoViewSet
+from .categoria import CategoriaViewSet
+from .buscaImagem import BuscaImagemViewSet 
