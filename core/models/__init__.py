@@ -8,3 +8,4 @@ from .imagemProduto import ImagemProduto
 from .favorito import Favorito
 from .pedido import Pedido
 from .itemPedido import ItemPedido
+from .venda import Venda
