@@ -9,3 +9,4 @@ from .favorito import FavoritoViewSet
 from .pedido import PedidoViewSet
 from .itemPedido import ItemPedidoViewSet
 from .venda import VendaViewSet
+from .seguidor import SeguidorViewSet

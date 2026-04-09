@@ -9,3 +9,4 @@ from .favorito import Favorito
 from .pedido import Pedido
 from .itemPedido import ItemPedido
 from .venda import Venda
+from .seguidor import Seguidor

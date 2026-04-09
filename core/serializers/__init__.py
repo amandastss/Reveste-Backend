@@ -9,3 +9,4 @@ from .favorito import FavoritoSerializer
 from .pedido import PedidoSerializer   
 from .itemPedido import ItemPedidoSerializer   
 from .venda import VendaSerializer
+from .seguidor import SeguidorSerializer
