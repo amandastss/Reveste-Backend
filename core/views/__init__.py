@@ -7,3 +7,4 @@ from .buscaImagem import BuscaImagemViewSet
 from .imagemProduto import ImagemProdutoViewSet 
 from .favorito import FavoritoViewSet 
 from .pedido import PedidoViewSet
+from .itemPedido import ItemPedidoViewSet

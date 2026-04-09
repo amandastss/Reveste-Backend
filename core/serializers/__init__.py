@@ -7,3 +7,4 @@ from .buscaImagem import BuscaImagemSerializer
 from .imagemProduto import ImagemProdutoSerializer
 from .favorito import FavoritoSerializer
 from .pedido import PedidoSerializer   
+from .itemPedido import ItemPedidoSerializer   

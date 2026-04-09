@@ -7,3 +7,4 @@ from .buscaImagem import BuscaImagem
 from .imagemProduto import ImagemProduto
 from .favorito import Favorito
 from .pedido import Pedido
+from .itemPedido import ItemPedido

@@ -17,6 +17,7 @@ from core.views import (
     CategoriaViewSet,
     FavoritoViewSet,
     ImagemProdutoViewSet,
+    ItemPedidoViewSet,
     PedidoViewSet,
     ProdutoViewSet,
     UserRegistrationView,
@@ -32,6 +33,7 @@ router.register(r'imagens-produto', ImagemProdutoViewSet, basename='imagens-prod
 router.register(r'categorias', CategoriaViewSet, basename='categorias')
 router.register(r'favoritos', FavoritoViewSet, basename='favoritos')
 router.register(r'pedidos', PedidoViewSet, basename='pedidos')
+router.register(r'itens-pedido', ItemPedidoViewSet, basename='itens-pedido')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
