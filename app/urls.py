@@ -16,6 +16,7 @@ from core.views import (
     BuscaImagemViewSet,
     CategoriaViewSet,
     FavoritoViewSet,
+    HistoricoPesquisaViewSet,
     ImagemProdutoViewSet,
     ItemPedidoViewSet,
     PedidoViewSet,
@@ -38,6 +39,7 @@ router.register(r'pedidos', PedidoViewSet, basename='pedidos')
 router.register(r'itens-pedido', ItemPedidoViewSet, basename='itens-pedido')
 router.register(r'vendas', VendaViewSet, basename='vendas')
 router.register(r'seguidores', SeguidorViewSet, basename='seguidores')
+router.register(r'historico-pesquisa', HistoricoPesquisaViewSet, basename='historico-pesquisa')
 
 urlpatterns = [
     path('admin/', admin.site.urls),

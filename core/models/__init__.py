@@ -10,3 +10,4 @@ from .pedido import Pedido
 from .itemPedido import ItemPedido
 from .venda import Venda
 from .seguidor import Seguidor
+from .historicoPesquisa import HistoricoPesquisa

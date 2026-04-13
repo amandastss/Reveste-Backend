@@ -10,3 +10,4 @@ from .pedido import PedidoViewSet
 from .itemPedido import ItemPedidoViewSet
 from .venda import VendaViewSet
 from .seguidor import SeguidorViewSet
+from .historicoPesquisa import HistoricoPesquisaViewSet
