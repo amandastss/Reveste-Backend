@@ -11,3 +11,5 @@ from .itemPedido import ItemPedidoSerializer
 from .venda import VendaSerializer
 from .seguidor import SeguidorSerializer
 from .historicoPesquisa import HistoricoPesquisaSerializer
+from .notificacao import NotificacaoSerializer
+from .sessaoLogin import SessaoLoginSerializer

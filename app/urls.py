@@ -19,13 +19,16 @@ from core.views import (
     HistoricoPesquisaViewSet,
     ImagemProdutoViewSet,
     ItemPedidoViewSet,
+    NotificacaoViewSet,
     PedidoViewSet,
     ProdutoViewSet,
     SeguidorViewSet,
+    SessaoLoginViewSet,
     UserRegistrationView,
     UserViewSet,
     VendaViewSet,
 )
+from core.views.sessaoLogin import SessaoLoginViewSet  # noqa: F811
 
 router = DefaultRouter()
 
@@ -40,6 +43,8 @@ router.register(r'itens-pedido', ItemPedidoViewSet, basename='itens-pedido')
 router.register(r'vendas', VendaViewSet, basename='vendas')
 router.register(r'seguidores', SeguidorViewSet, basename='seguidores')
 router.register(r'historico-pesquisa', HistoricoPesquisaViewSet, basename='historico-pesquisa')
+router.register(r'notificações', NotificacaoViewSet, basename='notificações')
+router.register(r'sessão-login', SessaoLoginViewSet, basename='sessão-login')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
