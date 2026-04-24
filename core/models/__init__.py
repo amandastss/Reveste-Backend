@@ -13,3 +13,4 @@ from .seguidor import Seguidor
 from .historicoPesquisa import HistoricoPesquisa
 from .notificacao import Notificacao
 from .sessaoLogin import SessaoLogin
+

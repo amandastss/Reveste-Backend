@@ -12,4 +12,3 @@ from .venda import VendaViewSet
 from .seguidor import SeguidorViewSet
 from .historicoPesquisa import HistoricoPesquisaViewSet
 from .notificacao import NotificacaoViewSet
-from .sessaoLogin import SessaoLoginViewSet

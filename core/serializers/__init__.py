@@ -1,6 +1,5 @@
 from django.conf.locale import fr
 
-from .user import UserRegistrationSerializer, UserSerializer
 from .produto import ProdutoSerializer
 from .categoria import CategoriaSerializer
 from .buscaImagem import BuscaImagemSerializer  
@@ -13,3 +12,4 @@ from .seguidor import SeguidorSerializer
 from .historicoPesquisa import HistoricoPesquisaSerializer
 from .notificacao import NotificacaoSerializer
 from .sessaoLogin import SessaoLoginSerializer
+from .user import UserRegistrationSerializer, UserSerializer

@@ -14,6 +14,7 @@ from rest_framework_simplejwt.views import (
     TokenVerifyView,
 )
 
+# IMPORTS DOS VIEWSETS
 from core.views import (
     BuscaImagemViewSet,
     CategoriaViewSet,
@@ -25,12 +26,15 @@ from core.views import (
     PedidoViewSet,
     ProdutoViewSet,
     SeguidorViewSet,
-    SessaoLoginViewSet,
     UserRegistrationView,
     UserViewSet,
     VendaViewSet,
 )
-from core.views.sessaoLogin import SessaoLoginViewSet  # noqa: F811
+
+# LOGIN (APIView separado)
+from core.views.sessaoLogin import LoginView
+
+# uploader
 from uploader.router import router as uploader_router
 
 router = DefaultRouter()
@@ -47,31 +51,35 @@ router.register(r'vendas', VendaViewSet, basename='vendas')
 router.register(r'seguidores', SeguidorViewSet, basename='seguidores')
 router.register(r'historico-pesquisa', HistoricoPesquisaViewSet, basename='historico-pesquisa')
 router.register(r'notificacoes', NotificacaoViewSet, basename='notificacoes')
-router.register(r'sessao-login', SessaoLoginViewSet, basename='sessao-login')
+
+router.register(r'sessao-login', basename='sessao-login')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # OpenAPI 3
+
+    # DOCS
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
-    path(
-        'api/doc/',
-        SpectacularSwaggerView.as_view(url_name='schema'),
-        name='swagger-ui',
-    ),
-    path(
-        'api/redoc/',
-        SpectacularRedocView.as_view(url_name='schema'),
-        name='redoc',
-    ),
-    # Autenticação JWT
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
-    # Registro de usuários
-    path('api/registro/', UserRegistrationView.as_view(), name='user_registration'),
-    # API
+    path('api/doc/', SpectacularSwaggerView.as_view(url_name='schema')),
+    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema')),
+
+    # JWT
+    path('api/token/', TokenObtainPairView.as_view()),
+    path('api/token/refresh/', TokenRefreshView.as_view()),
+    path('api/token/verify/', TokenVerifyView.as_view()),
+
+    # REGISTRO
+    path('api/registro/', UserRegistrationView.as_view()),
+
+    # LOGIN CUSTOM (SUA SESSAOLOGIN)
+    path('api/login/', LoginView.as_view()),
+
+    # API PRINCIPAL
     path('api/', include(router.urls)),
+
+    # UPLOADS
     path('api/media/', include(uploader_router.urls)),
+     path('api/', include('core.urls')),
 ]
 
-urlpatterns += static(settings.MEDIA_ENDPOINT, document_root=settings.MEDIA_ROOT)
+# MEDIA
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
