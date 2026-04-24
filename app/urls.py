@@ -46,8 +46,8 @@ router.register(r'itens-pedido', ItemPedidoViewSet, basename='itens-pedido')
 router.register(r'vendas', VendaViewSet, basename='vendas')
 router.register(r'seguidores', SeguidorViewSet, basename='seguidores')
 router.register(r'historico-pesquisa', HistoricoPesquisaViewSet, basename='historico-pesquisa')
-router.register(r'notificações', NotificacaoViewSet, basename='notificações')
-router.register(r'sessão-login', SessaoLoginViewSet, basename='sessão-login')
+router.register(r'notificacoes', NotificacaoViewSet, basename='notificacoes')
+router.register(r'sessao-login', SessaoLoginViewSet, basename='sessao-login')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
