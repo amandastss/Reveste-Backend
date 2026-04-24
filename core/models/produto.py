@@ -2,6 +2,7 @@ from django.db import models
 
 from core.models.categoria import Categoria
 from core.models.user import User
+from uploader.models import Image
 
 
 class Produto(models.Model):
@@ -19,6 +20,15 @@ class Produto(models.Model):
         max_length=10,
         choices=CONDICAO_CHOICES,
         default='novo'
+    )
+
+    imagem = models.ForeignKey(
+        Image,
+        related_name='+',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        default=None,
     )
 
     categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE, null=True, blank=True)
