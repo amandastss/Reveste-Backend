@@ -14,7 +14,6 @@ from rest_framework_simplejwt.views import (
     TokenVerifyView,
 )
 
-# IMPORTS DOS VIEWSETS
 from core.views import (
     BuscaImagemViewSet,
     CategoriaViewSet,
@@ -31,10 +30,8 @@ from core.views import (
     VendaViewSet,
 )
 
-# LOGIN (APIView separado)
+# IMPORT CORRETO (só um!)
 from core.views.sessaoLogin import LoginView
-
-# uploader
 from uploader.router import router as uploader_router
 
 router = DefaultRouter()
@@ -52,8 +49,6 @@ router.register(r'seguidores', SeguidorViewSet, basename='seguidores')
 router.register(r'historico-pesquisa', HistoricoPesquisaViewSet, basename='historico-pesquisa')
 router.register(r'notificacoes', NotificacaoViewSet, basename='notificacoes')
 
-router.register(r'sessao-login', basename='sessao-login')
-
 urlpatterns = [
     path('admin/', admin.site.urls),
 
@@ -62,7 +57,7 @@ urlpatterns = [
     path('api/doc/', SpectacularSwaggerView.as_view(url_name='schema')),
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema')),
 
-    # JWT
+    # AUTH JWT
     path('api/token/', TokenObtainPairView.as_view()),
     path('api/token/refresh/', TokenRefreshView.as_view()),
     path('api/token/verify/', TokenVerifyView.as_view()),
@@ -70,16 +65,14 @@ urlpatterns = [
     # REGISTRO
     path('api/registro/', UserRegistrationView.as_view()),
 
-    # LOGIN CUSTOM (SUA SESSAOLOGIN)
-    path('api/login/', LoginView.as_view()),
+    # LOGIN (SÓ UM PADRÃO)
+    path('api/login/', LoginView.as_view(), name='login'),
 
     # API PRINCIPAL
     path('api/', include(router.urls)),
 
     # UPLOADS
     path('api/media/', include(uploader_router.urls)),
-     path('api/', include('core.urls')),
 ]
 
-# MEDIA
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
