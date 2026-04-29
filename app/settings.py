@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'uploader',
     'core',
+    'posts',
 ]
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',

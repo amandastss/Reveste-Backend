@@ -73,6 +73,7 @@ urlpatterns = [
 
     # UPLOADS
     path('api/media/', include(uploader_router.urls)),
+    path("api/", include("posts.urls")),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

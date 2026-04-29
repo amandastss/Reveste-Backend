@@ -5,6 +5,8 @@ from uploader.models import Image
 
 
 class ImageUploadSerializer(serializers.ModelSerializer):
+    file = serializers.ImageField()
+
     class Meta:
         model = Image
         fields = ["attachment_key", "file", "description", "uploaded_on", "url"]
