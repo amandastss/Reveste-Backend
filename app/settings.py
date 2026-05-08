@@ -120,7 +120,7 @@ FILE_UPLOAD_PERMISSIONS = 0o640
 # Configurações específicas para desenvolvimento, migração e produção
 if MODE == 'DEVELOPMENT':
     MY_IP = os.getenv('MY_IP', '127.0.0.1')
-    MEDIA_URL = f'http://{MY_IP}:19003/media/'
+    MEDIA_URL = '/media/'
 else:
     MEDIA_URL = '/media/'
     CLOUDINARY_URL = os.getenv('CLOUDINARY_URL')
