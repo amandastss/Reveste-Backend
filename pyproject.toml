@@ -58,7 +58,7 @@ distribution = false
 
 [[tool.pdm.autoexport]]
 filename = "requirements.txt"
-without-hashes = "true"
+without-hashes = true
 
 [tool.ruff]
 line-length = 120

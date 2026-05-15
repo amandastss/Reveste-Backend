@@ -26,8 +26,14 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
+    ROLE_CHOICES = [
+        ('buyer', 'Comprador'),
+        ('seller', 'Vendedor'),
+    ]
+
     email = models.EmailField(unique=True)
     name = models.CharField(max_length=255)
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='buyer')
 
     # 👇 OBRIGATÓRIO pro admin funcionar
     is_active = models.BooleanField(default=True)
