@@ -2,6 +2,7 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.generics import CreateAPIView
+from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
@@ -34,3 +35,17 @@ class UserRegistrationView(CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserRegistrationSerializer
     permission_classes = [AllowAny]
+
+
+class UserEmailCheckView(APIView):
+    """Endpoint para verificar se um email já possui conta."""
+
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response({'error': 'Email é obrigatório'}, status=status.HTTP_400_BAD_REQUEST)
+
+        exists = User.objects.filter(email__iexact=email).exists()
+        return Response({'exists': exists}, status=status.HTTP_200_OK)

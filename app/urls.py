@@ -28,6 +28,7 @@ from core.views import (
     UserRegistrationView,
     UserViewSet,
     VendaViewSet,
+    UserEmailCheckView,
 )
 
 # IMPORT CORRETO (só um!)
@@ -64,6 +65,7 @@ urlpatterns = [
 
     # REGISTRO
     path('api/registro/', UserRegistrationView.as_view()),
+    path('api/check-email/', UserEmailCheckView.as_view()),
 
     # LOGIN (SÓ UM PADRÃO)
     path('api/login/', LoginView.as_view(), name='login'),
