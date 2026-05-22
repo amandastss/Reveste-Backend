@@ -2,14 +2,6 @@ from django.db import models
 
 from core.models.categoria import Categoria
 from core.models.user import User
-from uploader.models import Image
-
-imagem = models.ForeignKey(
-    Image,
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True
-)
 
 
 class Produto(models.Model):

@@ -25,10 +25,10 @@ from core.views import (
     PedidoViewSet,
     ProdutoViewSet,
     SeguidorViewSet,
+    UserEmailCheckView,
     UserRegistrationView,
     UserViewSet,
     VendaViewSet,
-    UserEmailCheckView,
 )
 
 # IMPORT CORRETO (só um!)

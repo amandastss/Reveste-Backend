@@ -1,9 +1,16 @@
-from rest_framework.serializers import ModelSerializer
+from rest_framework import serializers
 
 from core.models import Categoria
 
 
-class CategoriaSerializer(ModelSerializer):
+class CategoriaSerializer(serializers.ModelSerializer):
+    imagem_url = serializers.SerializerMethodField()
+
     class Meta:
         model = Categoria
-        fields = '__all__'
+        fields = ['id', 'nome', 'imagem_url']
+
+    def get_imagem_url(self, obj):
+        if obj.imagem and obj.imagem.file:
+            return obj.imagem.file.url
+        return None

@@ -1,9 +1,11 @@
-from rest_framework.serializers import ModelSerializer
+from rest_framework.serializers import ModelSerializer, SerializerMethodField
 
 from core.models import Produto
 
 
 class ProdutoSerializer(ModelSerializer):
+    imagem_url = SerializerMethodField()
+
     class Meta:
         model = Produto
         fields = '__all__'
@@ -11,13 +13,10 @@ class ProdutoSerializer(ModelSerializer):
             'imagem': {'required': False}
         }
 
-    def create(self, validated_data):
-        imagem_url = validated_data.get('imagem')
+    def get_imagem_url(self, obj):
+        request = self.context.get('request')
 
-        if imagem_url:
-            if 'media/' in imagem_url:
-                caminho = imagem_url.split('media/')[1]
-                validated_data['imagem'] = caminho
+        if obj.imagem:
+            return request.build_absolute_uri(obj.imagem.url)
 
-        print(validated_data)
-        return super().create(validated_data)
+        return None
