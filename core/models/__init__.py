@@ -1,6 +1,6 @@
 from django.conf.locale import fr
 
-from .user import User
+from .user import User , UserManager
 from .produto import Produto
 from .categoria import Categoria
 from .buscaImagem import BuscaImagem

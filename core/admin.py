@@ -10,13 +10,34 @@ from core import models
 
 
 class UserAdmin(BaseUserAdmin):
-    """Define the admin pages for users."""
 
     ordering = ['id']
-    list_display = ['email', 'name', 'role', 'is_staff']
+
+    list_display = [
+        'email',
+        'name',
+        'role',
+        'birth_date',
+        'is_staff'
+    ]
+
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
-        (_('Personal Info'), {'fields': ('name', 'role')}),
+
+        (
+            _('Personal Info'),
+            {
+                'fields': (
+                    'name',
+                    'role',
+                    'birth_date',
+                    'profile_image',
+                    'bio',
+                    'phone',
+                )
+            },
+        ),
+
         (
             _('Permissions'),
             {
@@ -27,22 +48,32 @@ class UserAdmin(BaseUserAdmin):
                 )
             },
         ),
+
         (_('Important dates'), {'fields': ('last_login',)}),
+
         (_('Groups'), {'fields': ('groups',)}),
+
         (_('User Permissions'), {'fields': ('user_permissions',)}),
     )
+
     readonly_fields = ['last_login']
+
     add_fieldsets = (
         (
             None,
             {
                 'classes': ('wide',),
+
                 'fields': (
                     'email',
                     'password1',
                     'password2',
                     'name',
                     'role',
+                    'birth_date',
+                    'profile_image',
+                    'bio',
+                    'phone',
                     'is_active',
                     'is_staff',
                     'is_superuser',
@@ -53,6 +84,7 @@ class UserAdmin(BaseUserAdmin):
 
 
 admin.site.register(models.User, UserAdmin)
+
 admin.site.register(models.Produto)
 admin.site.register(models.Categoria)
 admin.site.register(models.BuscaImagem)

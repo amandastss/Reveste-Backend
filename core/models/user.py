@@ -8,7 +8,12 @@ class UserManager(BaseUserManager):
             raise ValueError('Email é obrigatório')
 
         email = self.normalize_email(email)
-        user = self.model(email=email, **extra_fields)
+
+        user = self.model(
+            email=email,
+            **extra_fields
+        )
+
         user.set_password(password)
         user.save(using=self._db)
 
@@ -22,6 +27,7 @@ class UserManager(BaseUserManager):
         user.is_active = True
 
         user.save(using=self._db)
+
         return user
 
 
@@ -32,11 +38,41 @@ class User(AbstractBaseUser, PermissionsMixin):
     ]
 
     email = models.EmailField(unique=True)
-    name = models.CharField(max_length=255)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='buyer')
 
-    # 👇 OBRIGATÓRIO pro admin funcionar
+    name = models.CharField(
+        max_length=255
+    )
+
+    role = models.CharField(
+        max_length=20,
+        choices=ROLE_CHOICES,
+        default='buyer'
+    )
+
+    birth_date = models.DateField(
+        null=True,
+        blank=True
+    )
+
+    profile_image = models.ImageField(
+        upload_to='users/',
+        null=True,
+        blank=True
+    )
+
+    bio = models.TextField(
+        null=True,
+        blank=True
+    )
+
+    phone = models.CharField(
+        max_length=20,
+        null=True,
+        blank=True
+    )
+
     is_active = models.BooleanField(default=True)
+
     is_staff = models.BooleanField(default=False)
 
     objects = UserManager()

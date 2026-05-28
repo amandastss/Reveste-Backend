@@ -31,9 +31,20 @@ from core.views import (
     VendaViewSet,
 )
 
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('api/', include('core.urls')),
+]
+
+if settings.DEBUG:
+    urlpatterns += static(
+        settings.MEDIA_URL,
+        document_root=settings.MEDIA_ROOT
+    )
+
 # IMPORT CORRETO (só um!)
-from core.views.sessaoLogin import LoginView
-from uploader.router import router as uploader_router
+from core.views.sessaoLogin import LoginView  # noqa: E402
+from uploader.router import router as uploader_router  # noqa: E402
 
 router = DefaultRouter()
 
