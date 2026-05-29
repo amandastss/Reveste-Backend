@@ -17,6 +17,8 @@ class ProdutoSerializer(ModelSerializer):
         request = self.context.get('request')
 
         if obj.imagem:
-            return request.build_absolute_uri(obj.imagem.url)
+            if request:
+                return request.build_absolute_uri(obj.imagem.url)
+            return obj.imagem.url
 
         return None
