@@ -31,7 +31,15 @@ class LoginView(APIView):
         )
 
         return Response({
-            "token": token,
-            "user_id": user.id,
-            "email": user.email
-        })
+    "token": token,
+    "user_id": user.id,
+    "email": user.email,
+    "name": user.name,
+    "phone": user.phone,
+    "birth_date": user.birth_date,
+    "profile_image": (
+        request.build_absolute_uri(user.profile_image.url)
+        if user.profile_image
+        else None
+    )
+})
