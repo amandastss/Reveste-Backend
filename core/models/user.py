@@ -43,6 +43,12 @@ class User(AbstractBaseUser, PermissionsMixin):
         max_length=255
     )
 
+    created_at = models.DateTimeField(
+    auto_now_add=True,
+    null=True,
+    blank=True
+)
+
     role = models.CharField(
         max_length=20,
         choices=ROLE_CHOICES,
