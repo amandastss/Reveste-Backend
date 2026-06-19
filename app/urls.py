@@ -29,6 +29,7 @@ from core.views import (
     UserRegistrationView,
     UserViewSet,
     VendaViewSet,
+    CarrinhoView,
 )
 
 urlpatterns = [
@@ -80,6 +81,9 @@ urlpatterns = [
 
     # LOGIN (SÓ UM PADRÃO)
     path('api/login/', LoginView.as_view(), name='login'),
+
+    # CARRINHO
+    path('api/carrinho/', CarrinhoView.as_view()),
 
     # API PRINCIPAL
     path('api/', include(router.urls)),
