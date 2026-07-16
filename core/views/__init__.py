@@ -14,3 +14,5 @@ from .historicoPesquisa import HistoricoPesquisaViewSet
 from .notificacao import NotificacaoViewSet
 from .scanner import ScannerViewSet
 from .carrinho import CarrinhoView
+from .sessaoLogin import SessaoLoginView
+from .reviews import ReviewListCreateView
