@@ -7,23 +7,21 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.translation import gettext_lazy as _
 
 from core import models
+from core.models import ItemPedido
+
+
+class ItemPedidoInline(admin.TabularInline):
+    model = ItemPedido
+    extra = 1
 
 
 class UserAdmin(BaseUserAdmin):
-
     ordering = ['id']
 
-    list_display = [
-        'email',
-        'name',
-        'role',
-        'birth_date',
-        'is_staff'
-    ]
+    list_display = ['email', 'name', 'role', 'birth_date', 'is_staff']
 
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
-
         (
             _('Personal Info'),
             {
@@ -37,7 +35,6 @@ class UserAdmin(BaseUserAdmin):
                 )
             },
         ),
-
         (
             _('Permissions'),
             {
@@ -48,11 +45,8 @@ class UserAdmin(BaseUserAdmin):
                 )
             },
         ),
-
         (_('Important dates'), {'fields': ('last_login',)}),
-
         (_('Groups'), {'fields': ('groups',)}),
-
         (_('User Permissions'), {'fields': ('user_permissions',)}),
     )
 
@@ -63,7 +57,6 @@ class UserAdmin(BaseUserAdmin):
             None,
             {
                 'classes': ('wide',),
-
                 'fields': (
                     'email',
                     'password1',
@@ -97,3 +90,11 @@ admin.site.register(models.Seguidor)
 admin.site.register(models.HistoricoPesquisa)
 admin.site.register(models.Notificacao)
 admin.site.register(models.SessaoLogin)
+
+
+class PedidoAdmin(admin.ModelAdmin):
+    list_display = ('usuario', 'status', 'criado_em')
+    search_fields = ('usuario__email', 'status')
+    list_filter = ('usuario', 'status')
+    ordering = ('-criado_em', 'usuario')
+    inlines = [ItemPedidoInline]
