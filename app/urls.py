@@ -62,9 +62,6 @@ router.register(r'vendas', VendaViewSet, basename='vendas')
 router.register(r'seguidores', SeguidorViewSet, basename='seguidores')
 router.register(r'historico-pesquisa', HistoricoPesquisaViewSet, basename='historico-pesquisa')
 router.register(r'notificacoes', NotificacaoViewSet, basename='notificacoes')
-router.register(r'carrinho', CarrinhoView, basename='carrinho')
-router.register(r'sessao-login', LoginView, basename='sessao-login')
-router.register(r'reviews', ReviewListCreateView, basename='reviews')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
