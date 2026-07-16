@@ -24,6 +24,7 @@ from core.views import (
     NotificacaoViewSet,
     PedidoViewSet,
     ProdutoViewSet,
+    ReviewListCreateView,
     SeguidorViewSet,
     UserEmailCheckView,
     UserRegistrationView,
@@ -61,6 +62,9 @@ router.register(r'vendas', VendaViewSet, basename='vendas')
 router.register(r'seguidores', SeguidorViewSet, basename='seguidores')
 router.register(r'historico-pesquisa', HistoricoPesquisaViewSet, basename='historico-pesquisa')
 router.register(r'notificacoes', NotificacaoViewSet, basename='notificacoes')
+router.register(r'carrinho', CarrinhoView, basename='carrinho')
+router.register(r'sessao-login', LoginView, basename='sessao-login')
+router.register(r'reviews', ReviewListCreateView, basename='reviews')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -87,6 +91,7 @@ urlpatterns = [
 
     # API PRINCIPAL
     path('api/', include(router.urls)),
+    path('reviews/<int:produto_id>/', ReviewListCreateView.as_view()),
 
     # UPLOADS
     path('api/media/', include(uploader_router.urls)),
