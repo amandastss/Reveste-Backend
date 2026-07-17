@@ -35,7 +35,6 @@ from core.views import (
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include('core.urls')),
 ]
 
 if settings.DEBUG:
