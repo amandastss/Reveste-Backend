@@ -88,7 +88,7 @@ urlpatterns = [
 
     # API PRINCIPAL
     path('api/', include(router.urls)),
-    path('reviews/<int:produto_id>/', ReviewListCreateView.as_view()),
+    path('api/reviews/<int:produto_id>/', ReviewListCreateView.as_view()),
 
     # UPLOADS
     path('api/media/', include(uploader_router.urls)),

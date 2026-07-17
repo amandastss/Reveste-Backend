@@ -1,4 +1,4 @@
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -7,7 +7,7 @@ from core.serializers import ReviewSerializer
 
 
 class ReviewListCreateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get(self, request, produto_id):
         reviews = Review.objects.filter(produto_id=produto_id).order_by('-created_at')
