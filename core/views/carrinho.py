@@ -1,10 +1,12 @@
-from rest_framework.views import APIView
+from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework.views import APIView
 
-from core.models import Pedido, ItemPedido, Produto
-from core.serializers import ItemPedidoSerializer
+from ..models.itemPedido import ItemPedido
+from ..models.pedido import Pedido
+from ..models.produto import Produto
+from ..serializers import ItemPedidoCreateUpdateSerializer, ItemPedidoListSerializer
 
 
 class CarrinhoView(APIView):
@@ -13,7 +15,7 @@ class CarrinhoView(APIView):
     def get(self, request):
         pedido, _ = Pedido.objects.get_or_create(usuario=request.user, status='PENDENTE')
         itens = pedido.itens.all()
-        serializer = ItemPedidoSerializer(itens, many=True)
+        serializer = ItemPedidoListSerializer(itens, many=True)
         return Response(serializer.data)
 
     def post(self, request):
@@ -52,5 +54,5 @@ class CarrinhoView(APIView):
             )
 
         item.save()
-        serializer = ItemPedidoSerializer(item)
+        serializer = ItemPedidoCreateUpdateSerializer(item)
         return Response(serializer.data, status=status.HTTP_201_CREATED)

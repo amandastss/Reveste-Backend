@@ -1,7 +1,7 @@
 from rest_framework.viewsets import ModelViewSet
 
-from core.models import Venda
-from core.serializers import VendaSerializer
+from ..models import Venda
+from ..serializers import VendaSerializer
 
 
 class VendaViewSet(ModelViewSet):

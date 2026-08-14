@@ -1,7 +1,6 @@
 from rest_framework.serializers import CharField, ModelSerializer, SerializerMethodField
 
-from core.models.itemPedido import ItemPedido
-from core.serializers import ItemPedidoCreateUpdateSerializer, ItemPedidoListSerializer
+from ..models.itemPedido import ItemPedido
 
 
 class ItemPedidoListSerializer(ModelSerializer):

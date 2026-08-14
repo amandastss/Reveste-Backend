@@ -3,13 +3,15 @@ from django.conf.urls.static import static
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
+from core.views.compra import CompraViewSet
 from core.views.login import LoginView
-from core.views.pedido import PedidoViewSet
+from core.views.produto import ProdutoViewSet
 
 from .views import HistoricoPesquisaViewSet
 
 router = DefaultRouter()
-router.register(r'pedidos', PedidoViewSet, basename='pedidos')
+router.register(r'produtos', ProdutoViewSet)
+router.register(r'compras', CompraViewSet)
 
 
 urlpatterns = [

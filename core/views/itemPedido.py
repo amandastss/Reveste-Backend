@@ -1,9 +1,13 @@
 from rest_framework.viewsets import ModelViewSet
 
-from core.models import ItemPedido
-from core.serializers import ItemPedidoSerializer
+from ..models.itemPedido import ItemPedido
+from ..serializers import ItemPedidoCreateUpdateSerializer, ItemPedidoListSerializer
 
 
 class ItemPedidoViewSet(ModelViewSet):
     queryset = ItemPedido.objects.all()
-    serializer_class = ItemPedidoSerializer
+
+    def get_serializer_class(self):
+        if self.action in {'list', 'retrieve'}:
+            return ItemPedidoListSerializer
+        return ItemPedidoCreateUpdateSerializer

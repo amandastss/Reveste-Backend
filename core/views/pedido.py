@@ -1,7 +1,7 @@
 from rest_framework.viewsets import ModelViewSet
 
-from core.models import Pedido
-from core.serializers.pedido import PedidoCreateUpdateSerializer, PedidoListSerializer
+from ..models import Pedido
+from ..serializers.pedido import PedidoCreateUpdateSerializer, PedidoListSerializer
 
 
 class PedidoViewSet(ModelViewSet):

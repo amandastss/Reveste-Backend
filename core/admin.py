@@ -7,12 +7,34 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.translation import gettext_lazy as _
 
 from core import models
-from core.models import ItemPedido
+
+from .models import Compra, ItemCompra, ItemPedido
+
+
+class ItemCompraInline(admin.TabularInline):
+    model = ItemCompra
+    extra = 1
+
+
+@admin.register(Compra)
+class CompraAdmin(admin.ModelAdmin):
+    inlines = [ItemCompraInline]
+    list_display = ('id', 'comprador', 'status', 'data_compra')
+    search_fields = ('comprador__email',)
+    list_filter = ('status', 'data_compra')
 
 
 class ItemPedidoInline(admin.TabularInline):
     model = ItemPedido
     extra = 1
+
+
+class PedidoAdmin(admin.ModelAdmin):
+    list_display = ('usuario', 'status', 'criado_em')
+    search_fields = ('usuario__email', 'status')
+    list_filter = ('usuario', 'status')
+    ordering = ('-criado_em', 'usuario')
+    inlines = [ItemPedidoInline]
 
 
 class UserAdmin(BaseUserAdmin):
@@ -77,24 +99,15 @@ class UserAdmin(BaseUserAdmin):
 
 
 admin.site.register(models.User, UserAdmin)
-
 admin.site.register(models.Produto)
 admin.site.register(models.Categoria)
 admin.site.register(models.BuscaImagem)
 admin.site.register(models.ImagemProduto)
 admin.site.register(models.Favorito)
-admin.site.register(models.Pedido)
-admin.site.register(models.ItemPedido)
 admin.site.register(models.Venda)
 admin.site.register(models.Seguidor)
 admin.site.register(models.HistoricoPesquisa)
 admin.site.register(models.Notificacao)
 admin.site.register(models.SessaoLogin)
 
-
-class PedidoAdmin(admin.ModelAdmin):
-    list_display = ('usuario', 'status', 'criado_em')
-    search_fields = ('usuario__email', 'status')
-    list_filter = ('usuario', 'status')
-    ordering = ('-criado_em', 'usuario')
-    inlines = [ItemPedidoInline]
+admin.site.register(models.Pedido, PedidoAdmin)
