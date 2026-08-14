@@ -24,6 +24,7 @@ from core.views import (
     NotificacaoViewSet,
     PedidoViewSet,
     ProdutoViewSet,
+    ReviewListCreateView,
     SeguidorViewSet,
     UserEmailCheckView,
     UserRegistrationView,
@@ -34,7 +35,6 @@ from core.views import (
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include('core.urls')),
 ]
 
 if settings.DEBUG:
@@ -87,6 +87,7 @@ urlpatterns = [
 
     # API PRINCIPAL
     path('api/', include(router.urls)),
+    path('api/reviews/<int:produto_id>/', ReviewListCreateView.as_view()),
 
     # UPLOADS
     path('api/media/', include(uploader_router.urls)),
