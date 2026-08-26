@@ -13,6 +13,6 @@ from .seguidor import SeguidorViewSet
 from .historicoPesquisa import HistoricoPesquisaViewSet
 from .notificacao import NotificacaoViewSet
 from .scanner import ScannerViewSet
-from .carrinho import CarrinhoView
+from .carrinho import CarrinhoView, FinalizarCompraView
 from .sessaoLogin import LoginView
 from .reviews import ReviewListCreateView
