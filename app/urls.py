@@ -16,8 +16,10 @@ from rest_framework_simplejwt.views import (
 
 from core.views import (
     BuscaImagemViewSet,
+    CarrinhoView,
     CategoriaViewSet,
     FavoritoViewSet,
+    FinalizarCompraView,
     HistoricoPesquisaViewSet,
     ImagemProdutoViewSet,
     ItemPedidoViewSet,
@@ -30,23 +32,13 @@ from core.views import (
     UserRegistrationView,
     UserViewSet,
     VendaViewSet,
-    CarrinhoView,
 )
+from core.views.sessaoLogin import LoginView
+from uploader.router import router as uploader_router
 
-urlpatterns = [
-    path('admin/', admin.site.urls),
-]
-
-if settings.DEBUG:
-    urlpatterns += static(
-        settings.MEDIA_URL,
-        document_root=settings.MEDIA_ROOT
-    )
-
-# IMPORT CORRETO (só um!)
-from core.views.sessaoLogin import LoginView  # noqa: E402
-from uploader.router import router as uploader_router  # noqa: E402
-
+# ==========================================
+# CONFIGURAÇÃO DOS ROUTERS
+# ==========================================
 router = DefaultRouter()
 
 router.register(r'usuarios', UserViewSet, basename='usuarios')
@@ -62,6 +54,9 @@ router.register(r'seguidores', SeguidorViewSet, basename='seguidores')
 router.register(r'historico-pesquisa', HistoricoPesquisaViewSet, basename='historico-pesquisa')
 router.register(r'notificacoes', NotificacaoViewSet, basename='notificacoes')
 
+# ==========================================
+# DEFINIÇÃO DE ROTAS (URLS)
+# ==========================================
 urlpatterns = [
     path('admin/', admin.site.urls),
 
@@ -84,14 +79,17 @@ urlpatterns = [
 
     # CARRINHO
     path('api/carrinho/', CarrinhoView.as_view()),
+    path('api/carrinho/finalizar/', FinalizarCompraView.as_view()),
 
-    # API PRINCIPAL
+    # API PRINCIPAL E REVIEWS
     path('api/', include(router.urls)),
     path('api/reviews/<int:produto_id>/', ReviewListCreateView.as_view()),
 
-    # UPLOADS
+    # UPLOADS E POSTS
     path('api/media/', include(uploader_router.urls)),
-    path("api/", include("posts.urls")),
+    path('api/', include('posts.urls')),
 ]
 
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Configuração de arquivos estáticos/media (sempre no final)
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
