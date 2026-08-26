@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from core.models import ItemPedido, Pedido, Produto
+from core.models import ItemPedido, Pedido, Produto, Venda
 from core.serializers import ItemPedidoSerializer
 
 
@@ -190,6 +190,24 @@ class FinalizarCompraView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # 1. Mapeia os vendedores dos itens do carrinho
+        vendedores = {
+            item.produto.user
+            for item in itens
+        }
+
+        # 2. Verifica se há mais de um vendedor (o que quebra a regra da sua API)
+        if len(vendedores) > 1:
+            return Response(
+                {
+                    'detail': (
+                        'Todos os produtos do carrinho devem '
+                        'pertencer ao mesmo vendedor.'
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         for item in itens:
             produto = Produto.objects.select_for_update().get(
                 id=item.produto_id
@@ -232,8 +250,17 @@ class FinalizarCompraView(APIView):
             produto.disponivel = False
             produto.save(update_fields=['disponivel'])
 
+        # 3. Finaliza o status do pedido
         pedido.status = 'PAGO'
         pedido.save(update_fields=['status'])
+
+        # 4. Pega o único vendedor daquele "Set" e cria a Venda
+        vendedor = vendedores.pop()
+
+        Venda.objects.get_or_create(
+            pedido=pedido,
+            vendedor=vendedor
+        )
 
         return Response(
             {
