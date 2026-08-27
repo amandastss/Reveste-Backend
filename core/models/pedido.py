@@ -31,5 +31,12 @@ class Pedido(models.Model):
         auto_now=True
     )
 
+    mercado_pago_preference_id = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        unique=True
+    )
+
     def __str__(self):
         return f'Pedido #{self.id} - {self.status}'

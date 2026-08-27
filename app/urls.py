@@ -88,6 +88,11 @@ urlpatterns = [
     # UPLOADS E POSTS
     path('api/media/', include(uploader_router.urls)),
     path('api/', include('posts.urls')),
+
+    path(
+    'api/pagamentos/',
+    include('pagamentos.urls')
+),
 ]
 
 # Configuração de arquivos estáticos/media (sempre no final)
