@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django_filters',
     'drf_spectacular',
     'rest_framework',
+    'pagamentos',
     'uploader',
     'core',
     'posts',
@@ -164,6 +165,17 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),  # Tokens de atualização expiram em 1 dia
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
+
+import os
+
+MERCADO_PAGO_ACCESS_TOKEN = os.environ.get(
+    'MERCADO_PAGO_ACCESS_TOKEN'
+)
+
+FRONTEND_URL = os.environ.get(
+    'FRONTEND_URL',
+    'http://localhost:5173'
+)
 
 # Exibe as configurações principais para verificação
 print(f'{MODE = } \n{MEDIA_URL = } \n{DATABASES = }')
