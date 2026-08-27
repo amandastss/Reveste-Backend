@@ -2,6 +2,7 @@ from django.db import models
 
 
 class ItemPedido(models.Model):
+
     pedido = models.ForeignKey(
         'core.Pedido',
         on_delete=models.CASCADE,
@@ -14,7 +15,10 @@ class ItemPedido(models.Model):
         related_name='itens_pedido'
     )
 
-    quantidade = models.PositiveIntegerField(default=1)
+    # Em um brechó cada produto representa uma peça única
+    quantidade = models.PositiveIntegerField(
+        default=1
+    )
 
     preco = models.DecimalField(
         max_digits=10,
@@ -45,9 +49,24 @@ class ItemPedido(models.Model):
         blank=True
     )
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['pedido', 'produto'],
+                name='produto_unico_por_pedido'
+            )
+        ]
+
+    def save(self, *args, **kwargs):
+        self.quantidade = 1
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.quantidade}x {self.produto} (Pedido {self.pedido.id})"
+        return (
+            f'1x {self.produto} '
+            f'(Pedido {self.pedido.id})'
+        )
 
     @property
     def subtotal(self):
-        return self.preco * self.quantidade
+        return self.preco

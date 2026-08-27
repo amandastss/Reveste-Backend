@@ -4,6 +4,7 @@ from core.models import ItemPedido
 
 
 class ItemPedidoSerializer(serializers.ModelSerializer):
+
     subtotal = serializers.SerializerMethodField()
 
     class Meta:
@@ -26,11 +27,14 @@ class ItemPedidoSerializer(serializers.ModelSerializer):
             'id',
             'pedido',
             'produto',
+            'quantidade',
             'preco',
             'nome',
+            'cor',
+            'tamanho',
             'imagem_url',
             'subtotal',
         ]
 
     def get_subtotal(self, obj):
-        return obj.preco * obj.quantidade
+        return obj.preco

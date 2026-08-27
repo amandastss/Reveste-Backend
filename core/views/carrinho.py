@@ -17,7 +17,9 @@ class CarrinhoView(APIView):
             status='PENDENTE'
         )
 
-        itens = pedido.itens.select_related('produto').all()
+        itens = pedido.itens.select_related(
+            'produto'
+        ).all()
 
         serializer = ItemPedidoSerializer(
             itens,
@@ -26,7 +28,7 @@ class CarrinhoView(APIView):
         )
 
         total = sum(
-            item.preco * item.quantidade
+            item.preco
             for item in itens
         )
 
@@ -39,30 +41,11 @@ class CarrinhoView(APIView):
 
     def post(self, request):
         product_id = request.data.get('productId')
-        quantity = request.data.get('quantity', 1)
 
         if not product_id:
             return Response(
                 {
                     'detail': 'productId é obrigatório.'
-                },
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        try:
-            quantity = int(quantity)
-        except (TypeError, ValueError):
-            return Response(
-                {
-                    'detail': 'quantity deve ser um número inteiro.'
-                },
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        if quantity <= 0:
-            return Response(
-                {
-                    'detail': 'quantity deve ser maior que zero.'
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
@@ -75,9 +58,23 @@ class CarrinhoView(APIView):
         except Produto.DoesNotExist:
             return Response(
                 {
-                    'detail': 'Produto não encontrado ou indisponível.'
+                    'detail': (
+                        'Produto não encontrado ou '
+                        'não está mais disponível.'
+                    )
                 },
                 status=status.HTTP_404_NOT_FOUND
+            )
+
+        if produto.user == request.user:
+            return Response(
+                {
+                    'detail': (
+                        'Você não pode adicionar '
+                        'seu próprio produto ao carrinho.'
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
             )
 
         pedido, _ = Pedido.objects.get_or_create(
@@ -85,24 +82,55 @@ class CarrinhoView(APIView):
             status='PENDENTE'
         )
 
-        item, created = ItemPedido.objects.get_or_create(
+        # Não permite adicionar a mesma peça duas vezes
+        if pedido.itens.filter(
+            produto=produto
+        ).exists():
+            return Response(
+                {
+                    'detail': (
+                        'Este produto já está '
+                        'no seu carrinho.'
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Mantém a regra de um vendedor por pedido
+        primeiro_item = pedido.itens.select_related(
+            'produto__user'
+        ).first()
+
+        if primeiro_item:
+            vendedor_atual = primeiro_item.produto.user
+
+            if produto.user != vendedor_atual:
+                return Response(
+                    {
+                        'detail': (
+                            'Seu carrinho já possui produtos '
+                            'de outro vendedor. Finalize ou '
+                            'esvazie o carrinho antes de adicionar '
+                            'produtos deste vendedor.'
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        item = ItemPedido.objects.create(
             pedido=pedido,
             produto=produto,
-            defaults={
-                'quantidade': quantity,
-                'preco': produto.preco,
-                'nome': produto.nome,
-                'imagem_url': (
-                    request.build_absolute_uri(produto.imagem.url)
-                    if produto.imagem
-                    else None
-                ),
-            }
+            quantidade=1,
+            preco=produto.preco,
+            nome=produto.nome,
+            imagem_url=(
+                request.build_absolute_uri(
+                    produto.imagem.url
+                )
+                if produto.imagem
+                else None
+            ),
         )
-
-        if not created:
-            item.quantidade += quantity
-            item.save()
 
         serializer = ItemPedidoSerializer(
             item,
@@ -145,7 +173,9 @@ class CarrinhoView(APIView):
         if not item:
             return Response(
                 {
-                    'detail': 'Produto não está no carrinho.'
+                    'detail': (
+                        'Produto não está no carrinho.'
+                    )
                 },
                 status=status.HTTP_404_NOT_FOUND
             )
@@ -153,9 +183,6 @@ class CarrinhoView(APIView):
         item.delete()
 
         return Response(
-            {
-                'detail': 'Produto removido do carrinho.'
-            },
             status=status.HTTP_204_NO_CONTENT
         )
 
@@ -165,6 +192,7 @@ class FinalizarCompraView(APIView):
 
     @transaction.atomic
     def post(self, request):
+
         pedido = Pedido.objects.select_for_update().filter(
             usuario=request.user,
             status='PENDENTE'
@@ -173,13 +201,17 @@ class FinalizarCompraView(APIView):
         if not pedido:
             return Response(
                 {
-                    'detail': 'Nenhum pedido pendente encontrado.'
+                    'detail': (
+                        'Nenhum pedido pendente encontrado.'
+                    )
                 },
                 status=status.HTTP_404_NOT_FOUND
             )
 
         itens = list(
-            pedido.itens.select_related('produto').all()
+            pedido.itens.select_related(
+                'produto__user'
+            ).all()
         )
 
         if not itens:
@@ -190,81 +222,104 @@ class FinalizarCompraView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 1. Mapeia os vendedores dos itens do carrinho
-        vendedores = {
-            item.produto.user
-            for item in itens
-        }
+        vendedores = set()
+        erro_validacao = None
 
-        # 2. Verifica se há mais de um vendedor (o que quebra a regra da sua API)
-        if len(vendedores) > 1:
+        for item in itens:
+
+            produto = Produto.objects.select_for_update().get(
+                id=item.produto_id
+            )
+
+            # Verifica novamente se a peça ainda está disponível
+            if not produto.disponivel:
+                erro_validacao = f'O produto "{produto.nome}" não está mais disponível.'
+                break
+
+            # Impede comprar a própria peça
+            if produto.user == request.user:
+                erro_validacao = 'Você não pode comprar seu próprio produto.'
+                break
+
+            # Garante que cada peça tenha quantidade 1
+            if item.quantidade != 1:
+                erro_validacao = 'Produtos do brechó possuem apenas uma unidade disponível.'
+                break
+
+            vendedores.add(produto.user)
+
+        if erro_validacao:
+            return Response(
+                {
+                    'detail': erro_validacao
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Um pedido possui apenas um vendedor
+        if len(vendedores) != 1:
             return Response(
                 {
                     'detail': (
-                        'Todos os produtos do carrinho devem '
-                        'pertencer ao mesmo vendedor.'
+                        'Todos os produtos do carrinho '
+                        'devem pertencer ao mesmo vendedor.'
                     )
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        vendedor = vendedores.pop()
+
         for item in itens:
+
             produto = Produto.objects.select_for_update().get(
                 id=item.produto_id
             )
 
-            if not produto.disponivel:
-                return Response(
-                    {
-                        'detail': (
-                            f'O produto "{produto.nome}" '
-                            'não está mais disponível.'
-                        )
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            if produto.user == request.user:
-                return Response(
-                    {
-                        'detail': (
-                            'Você não pode comprar seu próprio produto.'
-                        )
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-        for item in itens:
-            produto = item.produto
-
+            # Atualiza as informações salvas no pedido
             item.preco = produto.preco
             item.nome = produto.nome
+            item.quantidade = 1
 
             if produto.imagem:
                 item.imagem_url = request.build_absolute_uri(
                     produto.imagem.url
                 )
+            else:
+                item.imagem_url = None
 
-            item.save()
+            item.save(
+                update_fields=[
+                    'preco',
+                    'nome',
+                    'quantidade',
+                    'imagem_url'
+                ]
+            )
 
+            # A peça foi vendida
             produto.disponivel = False
-            produto.save(update_fields=['disponivel'])
+            produto.save(
+                update_fields=['disponivel']
+            )
 
-        # 3. Finaliza o status do pedido
         pedido.status = 'PAGO'
-        pedido.save(update_fields=['status'])
-
-        # 4. Pega o único vendedor daquele "Set" e cria a Venda
-        vendedor = vendedores.pop()
+        pedido.save(
+            update_fields=['status']
+        )
 
         Venda.objects.get_or_create(
             pedido=pedido,
-            vendedor=vendedor
+            defaults={
+                'vendedor': vendedor
+            }
         )
 
         return Response(
             {
-                'detail': 'Compra realizada com sucesso.',
+                'detail': (
+                    'Compra realizada com sucesso.'
+                ),
                 'pedido_id': pedido.id,
                 'status': pedido.status,
             },
