@@ -1,5 +1,5 @@
 from decimal import Decimal
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid5
 
 import mercadopago
 
@@ -16,6 +16,34 @@ from core.models import Pedido
 from .services import confirmar_pagamento
 
 
+def obter_pedido_do_checkout(usuario):
+    """
+    Retorna o pedido atual do usuário.
+
+    Primeiro procura um pedido que ainda não entrou no checkout.
+    Se ele já estiver aguardando pagamento, reutiliza o mesmo pedido.
+    """
+
+    pedido = (
+        Pedido.objects
+        .select_for_update()
+        .filter(
+            usuario=usuario,
+            status__in=[
+                'PENDENTE',
+                'AGUARDANDO_PAGAMENTO',
+            ]
+        )
+        .prefetch_related(
+            'itens__produto'
+        )
+        .order_by('id')
+        .first()
+    )
+
+    return pedido
+
+
 class CriarCheckoutView(APIView):
 
     permission_classes = [IsAuthenticated]
@@ -23,39 +51,34 @@ class CriarCheckoutView(APIView):
     @transaction.atomic
     def post(self, request):
 
-        pedido = (
-            Pedido.objects
-            .select_for_update()
-            .filter(
-                usuario=request.user,
-                status='PENDENTE'
-            )
-            .prefetch_related('itens__produto')
-            .first()
+        pedido = obter_pedido_do_checkout(
+            request.user
         )
 
         if not pedido:
             return Response(
                 {
                     'detail':
-                    'Nenhum pedido pendente foi encontrado.'
+                    'Nenhum pedido disponível para pagamento foi encontrado.'
                 },
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        itens = list(pedido.itens.all())
+        itens = list(
+            pedido.itens.all()
+        )
 
         if not itens:
             return Response(
                 {
                     'detail':
-                    'O carrinho está vazio.'
+                    'O pedido não possui itens.'
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        preference_items = []
         total = Decimal('0.00')
+        preference_items = []
 
         for item in itens:
 
@@ -71,7 +94,7 @@ class CriarCheckoutView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            if produto.user == request.user:
+            if produto.user_id == request.user.id:
                 return Response(
                     {
                         'detail':
@@ -80,59 +103,98 @@ class CriarCheckoutView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            preco = Decimal(str(produto.preco))
+            # O preço salvo no item do pedido representa
+            # o valor da peça no momento em que ela foi adicionada.
+            preco = Decimal(
+                str(item.preco)
+            )
 
             total += preco
 
-            preference_items.append({
-                'id': str(produto.id),
-                'title': produto.nome,
-                'quantity': 1,
-                'unit_price': float(preco),
-                'currency_id': 'BRL',
-            })
-
-        sdk = mercadopago.SDK(
-            settings.MERCADO_PAGO_ACCESS_TOKEN
-        )
-
-        preference_data = {
-            'items': preference_items,
-            'external_reference': str(pedido.id),
-        }
-
-        preference_response = (
-            sdk.preference()
-            .create(preference_data)
-        )
-
-        preference = preference_response.get(
-            'response'
-        )
-
-        if not preference:
-            return Response(
+            preference_items.append(
                 {
-                    'detail':
-                    'Não foi possível preparar o pagamento.'
-                },
-                status=status.HTTP_400_BAD_REQUEST
+                    'id': str(produto.id),
+                    'title': item.nome or produto.nome,
+                    'quantity': 1,
+                    'unit_price': float(preco),
+                    'currency_id': 'BRL',
+                }
             )
 
-        pedido.status = 'AGUARDANDO_PAGAMENTO'
-        pedido.mercado_pago_preference_id = preference['id']
+        preference_id = (
+            pedido.mercado_pago_preference_id
+        )
+
+        # Se ainda não existir uma preferência,
+        # cria uma e salva no pedido.
+        if not preference_id:
+
+            sdk = mercadopago.SDK(
+                settings.MERCADO_PAGO_ACCESS_TOKEN
+            )
+
+            preference_response = (
+                sdk.preference().create(
+                    {
+                        'items': preference_items,
+                        'external_reference': str(
+                            pedido.id
+                        ),
+                    }
+                )
+            )
+
+            preference = (
+                preference_response.get(
+                    'response'
+                )
+            )
+
+            if not preference:
+                return Response(
+                    {
+                        'detail':
+                        'Não foi possível preparar o pagamento.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            preference_id = preference.get(
+                'id'
+            )
+
+            if not preference_id:
+                return Response(
+                    {
+                        'detail':
+                        'O Mercado Pago não retornou '
+                        'uma preferência válida.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            pedido.mercado_pago_preference_id = (
+                preference_id
+            )
+
+        # Se já estava aguardando pagamento,
+        # continua normalmente.
+        pedido.status = (
+            'AGUARDANDO_PAGAMENTO'
+        )
 
         pedido.save(
             update_fields=[
                 'status',
-                'mercado_pago_preference_id'
+                'mercado_pago_preference_id',
+                'atualizado_em',
             ]
         )
 
         return Response(
             {
                 'pedido_id': pedido.id,
-                'preference_id': preference['id'],
+                'preference_id': preference_id,
                 'total': float(total),
             },
             status=status.HTTP_200_OK
@@ -153,7 +215,10 @@ class ProcessarPagamentoView(APIView):
                 usuario=request.user,
                 status='AGUARDANDO_PAGAMENTO'
             )
-            .prefetch_related('itens__produto')
+            .prefetch_related(
+                'itens__produto'
+            )
+            .order_by('id')
             .first()
         )
 
@@ -167,7 +232,9 @@ class ProcessarPagamentoView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        itens = list(pedido.itens.all())
+        itens = list(
+            pedido.itens.all()
+        )
 
         if not itens:
             return Response(
@@ -194,7 +261,7 @@ class ProcessarPagamentoView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            if produto.user == request.user:
+            if produto.user_id == request.user.id:
                 return Response(
                     {
                         'detail':
@@ -204,20 +271,28 @@ class ProcessarPagamentoView(APIView):
                 )
 
             total_backend += Decimal(
-                str(produto.preco)
+                str(item.preco)
             )
 
         form_data = request.data
 
-        token = form_data.get('token')
+        token = form_data.get(
+            'token'
+        )
+
         payment_method_id = form_data.get(
             'payment_method_id'
         )
+
         installments = form_data.get(
             'installments',
             1
         )
-        payer = form_data.get('payer', {})
+
+        payer = form_data.get(
+            'payer',
+            {}
+        )
 
         if not payment_method_id:
             return Response(
@@ -241,6 +316,9 @@ class ProcessarPagamentoView(APIView):
             'transaction_amount': float(
                 total_backend
             ),
+            'description': (
+                f'Pedido #{pedido.id} - ReVeste'
+            ),
             'payment_method_id':
                 payment_method_id,
             'installments': int(
@@ -257,10 +335,14 @@ class ProcessarPagamentoView(APIView):
         if token:
             payment_data['token'] = token
 
-        issuer_id = form_data.get('issuer_id')
+        issuer_id = form_data.get(
+            'issuer_id'
+        )
 
         if issuer_id:
-            payment_data['issuer_id'] = issuer_id
+            payment_data['issuer_id'] = (
+                issuer_id
+            )
 
         identification = payer.get(
             'identification'
@@ -275,13 +357,25 @@ class ProcessarPagamentoView(APIView):
                 'identification'
             ] = {
                 'type':
-                    identification['type'],
+                identification['type'],
                 'number':
-                    identification['number'],
+                identification['number'],
             }
 
         sdk = mercadopago.SDK(
             settings.MERCADO_PAGO_ACCESS_TOKEN
+        )
+
+        # A mesma compra usa sempre a mesma chave
+        # de idempotência.
+        #
+        # Isso evita criar cobranças duplicadas caso
+        # o frontend envie a mesma solicitação novamente.
+        idempotency_key = str(
+            uuid5(
+                NAMESPACE_URL,
+                f'reveste-pedido-{pedido.id}'
+            )
         )
 
         request_options = (
@@ -289,9 +383,8 @@ class ProcessarPagamentoView(APIView):
         )
 
         request_options.custom_headers = {
-            'x-idempotency-key': str(
-                uuid4()
-            )
+            'x-idempotency-key':
+            idempotency_key
         }
 
         payment_response = (
@@ -301,8 +394,10 @@ class ProcessarPagamentoView(APIView):
             )
         )
 
-        pagamento = payment_response.get(
-            'response'
+        pagamento = (
+            payment_response.get(
+                'response'
+            )
         )
 
         if not pagamento:
@@ -314,10 +409,11 @@ class ProcessarPagamentoView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        pagamento_status = pagamento.get(
-            'status'
+        pagamento_status = (
+            pagamento.get('status')
         )
 
+        # Cartão aprovado imediatamente
         if pagamento_status == 'approved':
 
             confirmar_pagamento(
@@ -327,7 +423,9 @@ class ProcessarPagamentoView(APIView):
         return Response(
             {
                 'pedido_id': pedido.id,
-                'payment_id': pagamento.get('id'),
+                'payment_id': pagamento.get(
+                    'id'
+                ),
                 'status': pagamento_status,
                 'status_detail': pagamento.get(
                     'status_detail'

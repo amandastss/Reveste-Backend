@@ -4,9 +4,13 @@ from .views import (
     CriarCheckoutView,
     ProcessarPagamentoView,
 )
+from .webhooks import (
+    MercadoPagoWebhookView,
+)
 
 
 urlpatterns = [
+
     path(
         'criar-checkout/',
         CriarCheckoutView.as_view(),
@@ -17,5 +21,11 @@ urlpatterns = [
         'processar/',
         ProcessarPagamentoView.as_view(),
         name='processar-pagamento'
+    ),
+
+    path(
+        'webhook/',
+        MercadoPagoWebhookView.as_view(),
+        name='mercado-pago-webhook'
     ),
 ]
