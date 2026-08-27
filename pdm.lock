@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.1"
-content_hash = "sha256:b0cf503d46b2e63f2292823842a21b15d0cc71b5eecd4732915229abe0465fb5"
+content_hash = "sha256:5d6358042cd4cb599820d5f8dd445fadb481dc2260a1191cc5380455d8b1cd97"
 
 [[metadata.targets]]
 requires_python = ">=3.10"
@@ -656,6 +656,20 @@ groups = ["dev"]
 files = [
     {file = "mccabe-0.7.0-py2.py3-none-any.whl", hash = "sha256:6c2d30ab6be0e4a46919781807b4f0d834ebdd6c6e3dca0bda5a15f863427b6e"},
     {file = "mccabe-0.7.0.tar.gz", hash = "sha256:348e0240c33b60bbdf4e523192ef919f28cb2c3d7d5c7794f74009290f236325"},
+]
+
+[[package]]
+name = "mercadopago"
+version = "3.5.0"
+requires_python = ">=3.10"
+summary = "Mercadopago SDK module for Payments integration"
+groups = ["default"]
+dependencies = [
+    "requests<3,>=2.33.0",
+]
+files = [
+    {file = "mercadopago-3.5.0-py3-none-any.whl", hash = "sha256:c40dc5d24365807c155234a6d6ed28672d1d29c75c6c9ec58d7ae94d9ba5c68f"},
+    {file = "mercadopago-3.5.0.tar.gz", hash = "sha256:11268a28d8a14758fbabdc895a7aa4869c6d5dbbe878dcd3f982000172e5b78e"},
 ]
 
 [[package]]
