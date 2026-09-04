@@ -45,11 +45,8 @@ class CarrinhoView(APIView):
             'total': total,
         })
 
-
-    # =========================
     # ADICIONAR AO CARRINHO
     # POST /api/carrinho/
-    # =========================
     def post(self, request):
 
         product_id = request.data.get('productId')
@@ -158,11 +155,8 @@ class CarrinhoView(APIView):
             status=status.HTTP_201_CREATED
         )
 
-
-    # =========================
     # REMOVER DO CARRINHO
     # DELETE /api/carrinho/
-    # =========================
     def delete(self, request):
 
         product_id = request.data.get('productId')
