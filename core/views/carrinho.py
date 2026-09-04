@@ -9,9 +9,15 @@ from core.serializers import ItemPedidoSerializer
 
 
 class CarrinhoView(APIView):
+
     permission_classes = (IsAuthenticated,)
 
+    # =========================
+    # PEGAR O CARRINHO
+    # GET /api/carrinho/
+    # =========================
     def get(self, request):
+
         pedido, _ = Pedido.objects.get_or_create(
             usuario=request.user,
             status='PENDENTE'
@@ -28,7 +34,7 @@ class CarrinhoView(APIView):
         )
 
         total = sum(
-            item.preco
+            item.preco * item.quantidade
             for item in itens
         )
 
@@ -39,7 +45,13 @@ class CarrinhoView(APIView):
             'total': total,
         })
 
+
+    # =========================
+    # ADICIONAR AO CARRINHO
+    # POST /api/carrinho/
+    # =========================
     def post(self, request):
+
         product_id = request.data.get('productId')
 
         if not product_id:
@@ -55,6 +67,7 @@ class CarrinhoView(APIView):
                 id=product_id,
                 disponivel=True
             )
+
         except Produto.DoesNotExist:
             return Response(
                 {
@@ -82,10 +95,11 @@ class CarrinhoView(APIView):
             status='PENDENTE'
         )
 
-        # Não permite adicionar a mesma peça duas vezes
+        # Não permite adicionar o mesmo produto duas vezes
         if pedido.itens.filter(
             produto=produto
         ).exists():
+
             return Response(
                 {
                     'detail': (
@@ -102,9 +116,11 @@ class CarrinhoView(APIView):
         ).first()
 
         if primeiro_item:
+
             vendedor_atual = primeiro_item.produto.user
 
             if produto.user != vendedor_atual:
+
                 return Response(
                     {
                         'detail': (
@@ -142,7 +158,13 @@ class CarrinhoView(APIView):
             status=status.HTTP_201_CREATED
         )
 
+
+    # =========================
+    # REMOVER DO CARRINHO
+    # DELETE /api/carrinho/
+    # =========================
     def delete(self, request):
+
         product_id = request.data.get('productId')
 
         if not product_id:
@@ -173,9 +195,7 @@ class CarrinhoView(APIView):
         if not item:
             return Response(
                 {
-                    'detail': (
-                        'Produto não está no carrinho.'
-                    )
+                    'detail': 'Produto não está no carrinho.'
                 },
                 status=status.HTTP_404_NOT_FOUND
             )
@@ -183,11 +203,15 @@ class CarrinhoView(APIView):
         item.delete()
 
         return Response(
-            status=status.HTTP_204_NO_CONTENT
+            {
+                'detail': 'Produto removido do carrinho.'
+            },
+            status=status.HTTP_200_OK
         )
 
 
 class FinalizarCompraView(APIView):
+
     permission_classes = (IsAuthenticated,)
 
     @transaction.atomic
@@ -231,19 +255,24 @@ class FinalizarCompraView(APIView):
                 id=item.produto_id
             )
 
-            # Verifica novamente se a peça ainda está disponível
             if not produto.disponivel:
-                erro_validacao = f'O produto "{produto.nome}" não está mais disponível.'
+                erro_validacao = (
+                    f'O produto "{produto.nome}" '
+                    'não está mais disponível.'
+                )
                 break
 
-            # Impede comprar a própria peça
             if produto.user == request.user:
-                erro_validacao = 'Você não pode comprar seu próprio produto.'
+                erro_validacao = (
+                    'Você não pode comprar seu próprio produto.'
+                )
                 break
 
-            # Garante que cada peça tenha quantidade 1
             if item.quantidade != 1:
-                erro_validacao = 'Produtos do brechó possuem apenas uma unidade disponível.'
+                erro_validacao = (
+                    'Produtos do brechó possuem apenas '
+                    'uma unidade disponível.'
+                )
                 break
 
             vendedores.add(produto.user)
@@ -256,7 +285,6 @@ class FinalizarCompraView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Um pedido possui apenas um vendedor
         if len(vendedores) != 1:
             return Response(
                 {
@@ -276,15 +304,16 @@ class FinalizarCompraView(APIView):
                 id=item.produto_id
             )
 
-            # Atualiza as informações salvas no pedido
             item.preco = produto.preco
             item.nome = produto.nome
             item.quantidade = 1
 
             if produto.imagem:
+
                 item.imagem_url = request.build_absolute_uri(
                     produto.imagem.url
                 )
+
             else:
                 item.imagem_url = None
 
@@ -297,13 +326,14 @@ class FinalizarCompraView(APIView):
                 ]
             )
 
-            # A peça foi vendida
             produto.disponivel = False
+
             produto.save(
                 update_fields=['disponivel']
             )
 
         pedido.status = 'PAGO'
+
         pedido.save(
             update_fields=['status']
         )
