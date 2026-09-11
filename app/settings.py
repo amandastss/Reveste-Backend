@@ -130,9 +130,7 @@ else:
     CLOUDINARY_URL = os.getenv('CLOUDINARY_URL')
     STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
     STORAGES = {
-        'default': {
-            'BACKEND': 'cloudinary_storage.storage.MediaCloudinaryStorage'
-        },
+        'default': {'BACKEND': 'cloudinary_storage.storage.MediaCloudinaryStorage'},
         'staticfiles': {
             'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
         },
@@ -166,16 +164,9 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-import os
+MERCADO_PAGO_ACCESS_TOKEN = os.environ.get('MERCADO_PAGO_ACCESS_TOKEN')
 
-MERCADO_PAGO_ACCESS_TOKEN = os.environ.get(
-    'MERCADO_PAGO_ACCESS_TOKEN'
-)
-
-FRONTEND_URL = os.environ.get(
-    'FRONTEND_URL',
-    'http://localhost:5173'
-)
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
 
 # Exibe as configurações principais para verificação
 print(f'{MODE = } \n{MEDIA_URL = } \n{DATABASES = }')

@@ -8,7 +8,6 @@ from .webhooks import (
     MercadoPagoWebhookView,
 )
 
-
 urlpatterns = [
 
     path(
