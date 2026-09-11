@@ -1,11 +1,9 @@
 from decimal import Decimal
-from uuid import NAMESPACE_URL, uuid5
+from uuid import uuid4
 
 import mercadopago
-
 from django.conf import settings
 from django.db import transaction
-
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -20,11 +18,12 @@ def obter_pedido_do_checkout(usuario):
     """
     Retorna o pedido atual do usuário.
 
-    Primeiro procura um pedido que ainda não entrou no checkout.
-    Se ele já estiver aguardando pagamento, reutiliza o mesmo pedido.
+    O pedido pode estar:
+    - PENDENTE
+    - AGUARDANDO_PAGAMENTO
     """
 
-    pedido = (
+    return (
         Pedido.objects
         .select_for_update()
         .filter(
@@ -32,404 +31,434 @@ def obter_pedido_do_checkout(usuario):
             status__in=[
                 'PENDENTE',
                 'AGUARDANDO_PAGAMENTO',
-            ]
+            ],
         )
-        .prefetch_related(
-            'itens__produto'
-        )
+        .prefetch_related('itens__produto')
         .order_by('id')
         .first()
     )
 
-    return pedido
-
 
 class CriarCheckoutView(APIView):
-
     permission_classes = [IsAuthenticated]
 
-    @transaction.atomic
-    def post(self, request):
-
-        pedido = obter_pedido_do_checkout(
-            request.user
-        )
-
-        if not pedido:
-            return Response(
-                {
-                    'detail':
-                    'Nenhum pedido disponível para pagamento foi encontrado.'
-                },
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        itens = list(
-            pedido.itens.all()
-        )
-
-        if not itens:
-            return Response(
-                {
-                    'detail':
-                    'O pedido não possui itens.'
-                },
-                status=status.HTTP_400_BAD_REQUEST
-            )
+    @staticmethod
+    def _validar_e_preparar_itens(itens, usuario):
 
         total = Decimal('0.00')
         preference_items = []
 
         for item in itens:
-
             produto = item.produto
 
             if not produto.disponivel:
-                return Response(
-                    {
-                        'detail':
-                        f'A peça "{produto.nome}" '
-                        'não está mais disponível.'
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
+                return (
+                    f'A peça "{produto.nome}" não está mais disponível.',
+                    None,
+                    None,
                 )
 
-            if produto.user_id == request.user.id:
-                return Response(
-                    {
-                        'detail':
-                        'Você não pode comprar sua própria peça.'
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
+            if produto.user_id == usuario.id:
+                return (
+                    'Você não pode comprar sua própria peça.',
+                    None,
+                    None,
                 )
 
-            # O preço salvo no item do pedido representa
-            # o valor da peça no momento em que ela foi adicionada.
-            preco = Decimal(
-                str(item.preco)
-            )
+            preco = Decimal(str(item.preco))
 
             total += preco
 
-            preference_items.append(
-                {
-                    'id': str(produto.id),
-                    'title': item.nome or produto.nome,
-                    'quantity': 1,
-                    'unit_price': float(preco),
-                    'currency_id': 'BRL',
-                }
-            )
+            preference_items.append({
+                'id': str(produto.id),
+                'title': item.nome or produto.nome,
+                'quantity': 1,
+                'unit_price': float(preco),
+                'currency_id': 'BRL',
+            })
 
-        preference_id = (
-            pedido.mercado_pago_preference_id
-        )
+        return None, total, preference_items
 
-        # Se ainda não existir uma preferência,
-        # cria uma e salva no pedido.
-        if not preference_id:
+    @staticmethod
+    def _criar_preferencia(pedido, itens):
 
-            sdk = mercadopago.SDK(
-                settings.MERCADO_PAGO_ACCESS_TOKEN
-            )
+        sdk = mercadopago.SDK(settings.MERCADO_PAGO_ACCESS_TOKEN)
 
-            preference_response = (
-                sdk.preference().create(
-                    {
-                        'items': preference_items,
-                        'external_reference': str(
-                            pedido.id
-                        ),
-                    }
-                )
-            )
+        try:
+            response = sdk.preference().create({
+                'items': itens,
+                'external_reference': str(pedido.id),
+            })
+        except Exception:
+            return None
 
-            preference = (
-                preference_response.get(
-                    'response'
-                )
-            )
+        preference = response.get('response')
 
-            if not preference:
+        if not preference:
+            return None
+
+        return preference.get('id')
+
+    def post(self, request):
+
+        # Primeiro localizamos o pedido e validamos o estado.
+        with transaction.atomic():
+            pedido = obter_pedido_do_checkout(request.user)
+
+            if not pedido:
                 return Response(
-                    {
-                        'detail':
-                        'Não foi possível preparar o pagamento.'
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
+                    {'detail': ('Nenhum pedido disponível para pagamento foi encontrado.')},
+                    status=status.HTTP_404_NOT_FOUND,
                 )
 
-            preference_id = preference.get(
-                'id'
+            itens = list(pedido.itens.select_related('produto').all())
+
+            if not itens:
+                return Response(
+                    {'detail': ('O pedido não possui itens.')},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            erro, total, preference_items = self._validar_e_preparar_itens(
+                itens,
+                request.user,
+            )
+
+            if erro:
+                return Response(
+                    {'detail': erro},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            preference_id = pedido.mercado_pago_preference_id
+
+            pedido_id = pedido.id
+
+        # A chamada ao Mercado Pago acontece fora da
+        # transação do banco.
+        if not preference_id:
+            preference_id = self._criar_preferencia(
+                pedido,
+                preference_items,
             )
 
             if not preference_id:
                 return Response(
-                    {
-                        'detail':
-                        'O Mercado Pago não retornou '
-                        'uma preferência válida.'
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
+                    {'detail': ('Não foi possível preparar o pagamento no Mercado Pago.')},
+                    status=status.HTTP_502_BAD_GATEWAY,
                 )
 
-            pedido.mercado_pago_preference_id = (
-                preference_id
-            )
+            # Salvamos a preferência somente depois
+            # que o Mercado Pago retornou sucesso.
+            with transaction.atomic():
+                pedido = Pedido.objects.select_for_update().get(
+                    id=pedido_id,
+                    usuario=request.user,
+                )
 
-        # Se já estava aguardando pagamento,
-        # continua normalmente.
-        pedido.status = (
-            'AGUARDANDO_PAGAMENTO'
-        )
+                if pedido.status == 'PAGO':
+                    return Response(
+                        {
+                            'detail': ('Este pedido já foi pago.'),
+                            'pedido_id': pedido.id,
+                            'status': pedido.status,
+                        },
+                        status=status.HTTP_200_OK,
+                    )
 
-        pedido.save(
-            update_fields=[
-                'status',
-                'mercado_pago_preference_id',
-                'atualizado_em',
-            ]
-        )
+                pedido.mercado_pago_preference_id = preference_id
+
+                pedido.status = 'AGUARDANDO_PAGAMENTO'
+
+                pedido.save(
+                    update_fields=[
+                        'mercado_pago_preference_id',
+                        'status',
+                        'atualizado_em',
+                    ]
+                )
+
+        else:
+            with transaction.atomic():
+                pedido = Pedido.objects.select_for_update().get(
+                    id=pedido_id,
+                    usuario=request.user,
+                )
+
+                if pedido.status == 'PENDENTE':
+                    pedido.status = 'AGUARDANDO_PAGAMENTO'
+
+                    pedido.save(
+                        update_fields=[
+                            'status',
+                            'atualizado_em',
+                        ]
+                    )
 
         return Response(
             {
-                'pedido_id': pedido.id,
+                'pedido_id': pedido_id,
                 'preference_id': preference_id,
                 'total': float(total),
             },
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK,
         )
 
 
 class ProcessarPagamentoView(APIView):
-
     permission_classes = [IsAuthenticated]
 
-    @transaction.atomic
-    def post(self, request):
+    @staticmethod
+    def _validar_itens(itens, usuario):
 
-        pedido = (
-            Pedido.objects
-            .select_for_update()
-            .filter(
-                usuario=request.user,
-                status='AGUARDANDO_PAGAMENTO'
-            )
-            .prefetch_related(
-                'itens__produto'
-            )
-            .order_by('id')
-            .first()
-        )
-
-        if not pedido:
-            return Response(
-                {
-                    'detail':
-                    'Nenhum pedido aguardando pagamento '
-                    'foi encontrado.'
-                },
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        itens = list(
-            pedido.itens.all()
-        )
-
-        if not itens:
-            return Response(
-                {
-                    'detail':
-                    'O pedido não possui itens.'
-                },
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        total_backend = Decimal('0.00')
+        total = Decimal('0.00')
 
         for item in itens:
-
             produto = item.produto
 
             if not produto.disponivel:
-                return Response(
-                    {
-                        'detail':
-                        f'A peça "{produto.nome}" '
-                        'não está mais disponível.'
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
+                return (
+                    f'A peça "{produto.nome}" não está mais disponível.',
+                    None,
                 )
 
-            if produto.user_id == request.user.id:
-                return Response(
-                    {
-                        'detail':
-                        'Você não pode comprar sua própria peça.'
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
+            if produto.user_id == usuario.id:
+                return (
+                    'Você não pode comprar sua própria peça.',
+                    None,
                 )
 
-            total_backend += Decimal(
-                str(item.preco)
-            )
+            if item.quantidade != 1:
+                return (
+                    'Produtos do brechó possuem apenas uma unidade disponível.',
+                    None,
+                )
+
+            total += Decimal(str(item.preco))
+
+        return None, total
+
+    @staticmethod
+    def _criar_pagamento(
+        request,
+        pedido_id,
+        total,
+    ):
 
         form_data = request.data
 
-        token = form_data.get(
-            'token'
-        )
-
-        payment_method_id = form_data.get(
-            'payment_method_id'
-        )
+        token = form_data.get('token')
+        payment_method_id = form_data.get('payment_method_id')
 
         installments = form_data.get(
             'installments',
-            1
+            1,
         )
 
         payer = form_data.get(
             'payer',
-            {}
+            {},
         )
 
-        if not payment_method_id:
-            return Response(
-                {
-                    'detail':
-                    'Método de pagamento não informado.'
-                },
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        erro_validacao = None
 
-        if not payer.get('email'):
-            return Response(
-                {
-                    'detail':
-                    'E-mail do comprador não informado.'
-                },
-                status=status.HTTP_400_BAD_REQUEST
+        if not payment_method_id:
+            erro_validacao = 'Método de pagamento não informado.'
+        elif not payer.get('email'):
+            erro_validacao = 'E-mail do comprador não informado.'
+
+        if not erro_validacao:
+            try:
+                installments = int(installments or 1)
+            except (TypeError, ValueError):
+                erro_validacao = 'Quantidade de parcelas inválida.'
+
+        if not erro_validacao and installments < 1:
+            erro_validacao = 'Quantidade de parcelas inválida.'
+
+        if erro_validacao:
+            return (
+                None,
+                Response(
+                    {'detail': erro_validacao},
+                    status=status.HTTP_400_BAD_REQUEST,
+                ),
             )
 
         payment_data = {
-            'transaction_amount': float(
-                total_backend
-            ),
-            'description': (
-                f'Pedido #{pedido.id} - ReVeste'
-            ),
-            'payment_method_id':
-                payment_method_id,
-            'installments': int(
-                installments or 1
-            ),
+            'transaction_amount': float(total),
+            'description': (f'Pedido #{pedido_id} - ReVeste'),
+            'payment_method_id': payment_method_id,
+            'installments': installments,
             'payer': {
-                'email': payer['email']
+                'email': payer['email'],
             },
-            'external_reference': str(
-                pedido.id
-            ),
+            'external_reference': str(pedido_id),
         }
 
         if token:
             payment_data['token'] = token
 
-        issuer_id = form_data.get(
-            'issuer_id'
-        )
+        issuer_id = form_data.get('issuer_id')
 
         if issuer_id:
-            payment_data['issuer_id'] = (
-                issuer_id
-            )
+            payment_data['issuer_id'] = issuer_id
 
-        identification = payer.get(
-            'identification'
-        )
+        identification = payer.get('identification')
 
-        if (
-            identification
-            and identification.get('type')
-            and identification.get('number')
-        ):
-            payment_data['payer'][
-                'identification'
-            ] = {
-                'type':
-                identification['type'],
-                'number':
-                identification['number'],
+        if identification and identification.get('type') and identification.get('number'):
+            payment_data['payer']['identification'] = {
+                'type': identification['type'],
+                'number': identification['number'],
             }
 
-        sdk = mercadopago.SDK(
-            settings.MERCADO_PAGO_ACCESS_TOKEN
-        )
+        sdk = mercadopago.SDK(settings.MERCADO_PAGO_ACCESS_TOKEN)
 
-        # A mesma compra usa sempre a mesma chave
-        # de idempotência.
+        # Cada tentativa de pagamento recebe uma
+        # chave própria de idempotência.
         #
-        # Isso evita criar cobranças duplicadas caso
-        # o frontend envie a mesma solicitação novamente.
-        idempotency_key = str(
-            uuid5(
-                NAMESPACE_URL,
-                f'reveste-pedido-{pedido.id}'
-            )
-        )
+        # O Mercado Pago exige essa chave para
+        # evitar pagamentos duplicados.
+        idempotency_key = str(uuid4())
 
-        request_options = (
-            mercadopago.config.RequestOptions()
-        )
+        request_options = mercadopago.config.RequestOptions()
 
-        request_options.custom_headers = {
-            'x-idempotency-key':
-            idempotency_key
-        }
+        request_options.custom_headers = {'x-idempotency-key': idempotency_key}
 
-        payment_response = (
-            sdk.payment().create(
+        try:
+            payment_response = sdk.payment().create(
                 payment_data,
-                request_options
+                request_options,
             )
-        )
+        except Exception:
+            return (
+                None,
+                Response(
+                    {'detail': ('Não foi possível comunicar com o Mercado Pago.')},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                ),
+            )
 
-        pagamento = (
-            payment_response.get(
-                'response'
-            )
-        )
+        pagamento = payment_response.get('response')
 
         if not pagamento:
-            return Response(
-                {
-                    'detail':
-                    'Não foi possível processar o pagamento.'
-                },
-                status=status.HTTP_400_BAD_REQUEST
+            return (
+                None,
+                Response(
+                    {'detail': ('O Mercado Pago não retornou os dados do pagamento.')},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                ),
             )
 
-        pagamento_status = (
-            pagamento.get('status')
+        return pagamento, None
+
+    def post(self, request):
+
+        # Primeiro buscamos o pedido e validamos
+        # todos os dados dentro de uma transação curta.
+        with transaction.atomic():
+            pedido = (
+                Pedido.objects
+                .select_for_update()
+                .filter(
+                    usuario=request.user,
+                    status='AGUARDANDO_PAGAMENTO',
+                )
+                .prefetch_related('itens__produto')
+                .order_by('id')
+                .first()
+            )
+
+            if not pedido:
+                return Response(
+                    {'detail': ('Nenhum pedido aguardando pagamento foi encontrado.')},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            if pedido.status == 'PAGO':
+                return Response(
+                    {
+                        'detail': ('Este pedido já foi pago.'),
+                        'pedido_id': pedido.id,
+                        'status': pedido.status,
+                    },
+                    status=status.HTTP_200_OK,
+                )
+
+            itens = list(pedido.itens.select_related('produto').all())
+
+            if not itens:
+                return Response(
+                    {'detail': ('O pedido não possui itens.')},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            erro, total = self._validar_itens(
+                itens,
+                request.user,
+            )
+
+            if erro:
+                return Response(
+                    {'detail': erro},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            pedido_id = pedido.id
+
+        # A comunicação externa com o Mercado Pago
+        # acontece fora da transação do banco.
+        pagamento, erro_response = self._criar_pagamento(
+            request,
+            pedido_id,
+            total,
         )
 
-        # Cartão aprovado imediatamente
-        if pagamento_status == 'approved':
+        if erro_response:
+            return erro_response
 
-            confirmar_pagamento(
-                pedido.id
+        pagamento_id = pagamento.get('id')
+        pagamento_status = pagamento.get('status')
+        status_detail = pagamento.get('status_detail')
+
+        # Guardamos imediatamente no pedido o resultado
+        # retornado pelo Mercado Pago.
+        with transaction.atomic():
+            pedido = Pedido.objects.select_for_update().get(
+                id=pedido_id,
+                usuario=request.user,
             )
+
+            pedido.mercado_pago_payment_id = str(pagamento_id) if pagamento_id else None
+
+            pedido.mercado_pago_status = pagamento_status
+
+            pedido.mercado_pago_status_detail = status_detail
+
+            pedido.save(
+                update_fields=[
+                    'mercado_pago_payment_id',
+                    'mercado_pago_status',
+                    'mercado_pago_status_detail',
+                    'atualizado_em',
+                ]
+            )
+
+        # Apenas pagamentos aprovados podem tentar
+        # concluir imediatamente o pedido.
+        #
+        # O webhook continuará sendo a confirmação
+        # definitiva para manter o pedido sincronizado
+        # com o Mercado Pago.
+        if pagamento_status == 'approved':
+            confirmar_pagamento(pedido_id)
 
         return Response(
             {
-                'pedido_id': pedido.id,
-                'payment_id': pagamento.get(
-                    'id'
-                ),
+                'pedido_id': pedido_id,
+                'payment_id': pagamento_id,
                 'status': pagamento_status,
-                'status_detail': pagamento.get(
-                    'status_detail'
-                ),
+                'status_detail': status_detail,
             },
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK,
         )
