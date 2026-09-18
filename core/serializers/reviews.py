@@ -12,6 +12,7 @@ class ReviewImageSerializer(serializers.ModelSerializer):
 class ReviewSerializer(serializers.ModelSerializer):
     userName = serializers.CharField(source='user.username', read_only=True)
     userAvatar = serializers.ImageField(source='user.profile_image', read_only=True)
+    userId = serializers.IntegerField(source='user.id', read_only=True)
     produto = serializers.PrimaryKeyRelatedField(read_only=True)
     produto_id = serializers.IntegerField(write_only=True, required=False)
     images = ReviewImageSerializer(many=True, read_only=True)
@@ -24,6 +25,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             'produto_id',
             'userName',
             'userAvatar',
+            'userId',
             'stars',
             'text',
             'created_at',
