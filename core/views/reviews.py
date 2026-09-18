@@ -26,9 +26,13 @@ class ReviewViewSet(ModelViewSet):
         if not produto_id:
             raise ValueError('produto_id é obrigatório para criar uma review.')
 
-        review = serializer.save(user=self.request.user, produto_id=produto_id)
+        review = serializer.save(
+            user=self.request.user,
+            produto_id=produto_id
+        )
 
         images = self.request.FILES.getlist('images')
+
         for img in images:
             ReviewImage.objects.create(review=review, image=img)
 
@@ -43,8 +47,12 @@ class ReviewListCreateView(APIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get(self, request, produto_id):
-        reviews = Review.objects.filter(produto_id=produto_id).order_by('-created_at')
+        reviews = Review.objects.filter(
+            produto_id=produto_id
+        ).order_by('-created_at')
+
         serializer = ReviewSerializer(reviews, many=True)
+
         return Response(serializer.data)
 
     def post(self, request, produto_id):
@@ -58,7 +66,41 @@ class ReviewListCreateView(APIView):
         images = request.FILES.getlist('images')
 
         for img in images:
-            ReviewImage.objects.create(review=review, image=img)
+            ReviewImage.objects.create(
+                review=review,
+                image=img
+            )
 
         serializer = ReviewSerializer(review)
+
         return Response(serializer.data)
+
+    def delete(self, request, produto_id):
+        review_id = request.data.get('review_id')
+
+        if not review_id:
+            return Response(
+                {'detail': 'review_id é obrigatório.'},
+                status=400
+            )
+
+        try:
+            review = Review.objects.get(
+                id=review_id,
+                produto_id=produto_id,
+                user=request.user
+            )
+        except Review.DoesNotExist:
+            return Response(
+                {
+                    'detail': (
+                        'Avaliação não encontrada '
+                        'ou não pertence ao usuário.'
+                    )
+                },
+                status=404
+            )
+
+        review.delete()
+
+        return Response(status=204)
