@@ -4,6 +4,7 @@ from uuid import uuid4
 import mercadopago
 from django.conf import settings
 from django.db import transaction
+from django.urls import reverse
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -80,24 +81,76 @@ class CriarCheckoutView(APIView):
         return None, total, preference_items
 
     @staticmethod
-    def _criar_preferencia(pedido, itens):
+    def _buscar_preferencia(preference_id):
+        token = settings.MERCADO_PAGO_ACCESS_TOKEN
+        if not token:
+            return None, {'detail': 'Token do Mercado Pago não configurado.'}
 
-        sdk = mercadopago.SDK(settings.MERCADO_PAGO_ACCESS_TOKEN)
+        sdk = mercadopago.SDK(token)
 
         try:
-            response = sdk.preference().create({
-                'items': itens,
-                'external_reference': str(pedido.id),
-            })
+            response = sdk.preference().get(preference_id)
         except Exception:
-            return None
+            return None, {'detail': ('Não foi possível consultar a preferência no Mercado Pago.')}
+
+        preference = response.get('response')
+        if not preference:
+            return None, {'detail': ('O Mercado Pago não retornou a preferência de pagamento.')}
+
+        return preference, None
+
+    @staticmethod
+    def _criar_preferencia(request, pedido, itens):
+
+        token = settings.MERCADO_PAGO_ACCESS_TOKEN
+        if not token:
+            return None, {'detail': 'Token do Mercado Pago não configurado.'}, None
+
+        sdk = mercadopago.SDK(token)
+
+        webhook_url = request.build_absolute_uri(reverse('mercado-pago-webhook'))
+        frontend_url = settings.FRONTEND_URL.rstrip('/')
+
+        payload = {
+            'items': itens,
+            'external_reference': str(pedido.id),
+            'notification_url': webhook_url,
+            'auto_return': 'approved',
+            'back_urls': {
+                'success': f'{frontend_url}/checkout/sucesso?pedido_id={pedido.id}',
+                'failure': f'{frontend_url}/checkout/falha?pedido_id={pedido.id}',
+                'pending': f'{frontend_url}/checkout/pendente?pedido_id={pedido.id}',
+            },
+            'payer': {
+                'email': request.user.email,
+            },
+        }
+
+        try:
+            response = sdk.preference().create(payload)
+        except Exception:
+            return None, {'detail': ('Não foi possível preparar o pagamento no Mercado Pago.')}, None
 
         preference = response.get('response')
 
         if not preference:
-            return None
+            return None, {'detail': ('O Mercado Pago não retornou a preferência de pagamento.')}, None
 
-        return preference.get('id')
+        preference_id = preference.get('id')
+        init_point = preference.get('init_point') or preference.get('sandbox_init_point')
+
+        if not preference_id:
+            return None, {'detail': ('Preferência do Mercado Pago inválida.')}, None
+
+        return (
+            preference_id,
+            None,
+            {
+                'init_point': init_point,
+                'sandbox_init_point': preference.get('sandbox_init_point'),
+                'preference_id': preference_id,
+            },
+        )
 
     def post(self, request):
 
@@ -137,14 +190,15 @@ class CriarCheckoutView(APIView):
         # A chamada ao Mercado Pago acontece fora da
         # transação do banco.
         if not preference_id:
-            preference_id = self._criar_preferencia(
+            preference_id, erro_preferencia, mp_payload = self._criar_preferencia(
+                request,
                 pedido,
                 preference_items,
             )
 
-            if not preference_id:
+            if erro_preferencia:
                 return Response(
-                    {'detail': ('Não foi possível preparar o pagamento no Mercado Pago.')},
+                    erro_preferencia,
                     status=status.HTTP_502_BAD_GATEWAY,
                 )
 
@@ -179,6 +233,19 @@ class CriarCheckoutView(APIView):
                 )
 
         else:
+            preference, erro_preferencia = self._buscar_preferencia(preference_id)
+            if erro_preferencia:
+                return Response(
+                    erro_preferencia,
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+
+            mp_payload = {
+                'init_point': preference.get('init_point') or preference.get('sandbox_init_point'),
+                'sandbox_init_point': preference.get('sandbox_init_point'),
+                'preference_id': preference_id,
+            }
+
             with transaction.atomic():
                 pedido = Pedido.objects.select_for_update().get(
                     id=pedido_id,
@@ -195,12 +262,22 @@ class CriarCheckoutView(APIView):
                         ]
                     )
 
+        init_point = (mp_payload or {}).get('init_point')
+        sandbox_init_point = (mp_payload or {}).get('sandbox_init_point')
+
+        response_payload = {
+            'pedido_id': pedido_id,
+            'preference_id': preference_id,
+            'total': float(total),
+            'init_point': init_point,
+            'sandbox_init_point': sandbox_init_point,
+        }
+
+        if init_point:
+            response_payload['checkout_url'] = init_point
+
         return Response(
-            {
-                'pedido_id': pedido_id,
-                'preference_id': preference_id,
-                'total': float(total),
-            },
+            response_payload,
             status=status.HTTP_200_OK,
         )
 
