@@ -117,9 +117,9 @@ class CriarCheckoutView(APIView):
             'notification_url': webhook_url,
             'auto_return': 'approved',
             'back_urls': {
-                'success': f'{frontend_url}/checkout/sucesso?pedido_id={pedido.id}',
-                'failure': f'{frontend_url}/checkout/falha?pedido_id={pedido.id}',
-                'pending': f'{frontend_url}/checkout/pendente?pedido_id={pedido.id}',
+                'success': f'{frontend_url}/checkout/sucesso?pedido_id={pedido.id}&status=approved',
+                'failure': f'{frontend_url}/checkout/falha?pedido_id={pedido.id}&status=rejected',
+                'pending': f'{frontend_url}/checkout/pendente?pedido_id={pedido.id}&status=pending',
             },
             'payer': {
                 'email': request.user.email,
