@@ -108,7 +108,7 @@ class CriarCheckoutView(APIView):
 
         sdk = mercadopago.SDK(token)
 
-        webhook_url = request.build_absolute_uri(reverse('mercado-pago-webhook'))
+        webhook_url = settings.MERCADO_PAGO_WEBHOOK_URL or request.build_absolute_uri(reverse('mercado-pago-webhook'))
         frontend_url = settings.FRONTEND_URL.rstrip('/')
 
         payload = {
