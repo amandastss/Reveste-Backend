@@ -166,7 +166,11 @@ SIMPLE_JWT = {
 
 MERCADO_PAGO_ACCESS_TOKEN = os.environ.get('MERCADO_PAGO_ACCESS_TOKEN')
 MERCADO_PAGO_WEBHOOK_SECRET = os.environ.get('MERCADO_PAGO_WEBHOOK_SECRET')
-MERCADO_PAGO_WEBHOOK_URL = os.environ.get('MERCADO_PAGO_WEBHOOK_URL')
+BACKEND_URL = os.environ.get('BACKEND_URL', 'http://localhost:8000')
+MERCADO_PAGO_WEBHOOK_URL = os.environ.get(
+    'MERCADO_PAGO_WEBHOOK_URL',
+    f'{BACKEND_URL.rstrip("/")}/api/pagamentos/webhook/',
+)
 
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
 
