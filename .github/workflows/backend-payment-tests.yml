@@ -31,5 +31,7 @@ jobs:
           python -m pip install -r requirements.txt
       - name: Check Django configuration
         run: python manage.py check
+      - name: Check migrations
+        run: python manage.py makemigrations --check --dry-run
       - name: Run payment tests
         run: python manage.py test pagamentos --verbosity 2
