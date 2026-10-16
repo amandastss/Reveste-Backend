@@ -25,7 +25,7 @@ def _atualizar_pagamento_existente(pedido, payment_id, payment_status, status_de
     return pedido
 
 
-def _validar_produtos_do_pedido(pedido, itens):
+def _validar_produtos_do_pedido(pedido, itens, payment_id):
     vendedores = set()
     produtos = []
     total = Decimal('0.00')
@@ -33,6 +33,11 @@ def _validar_produtos_do_pedido(pedido, itens):
         produto = Produto.objects.select_for_update().get(id=item.produto_id)
         if not produto.disponivel:
             raise ValueError(f'O produto "{produto.nome}" não está mais disponível.')
+        if produto.reserva_pedido_id != pedido.id:
+            raise ValueError(f'A peça "{produto.nome}" não está reservada para este pedido.')
+        reserva_expirada = produto.reservado_ate is None or produto.reservado_ate <= timezone.now()
+        if reserva_expirada and str(pedido.mercado_pago_payment_id or '') != str(payment_id or ''):
+            raise ValueError(f'A reserva da peça "{produto.nome}" expirou.')
         if produto.user_id == pedido.usuario_id:
             raise ValueError('O comprador não pode comprar o próprio produto.')
         if item.quantidade != 1:
@@ -84,13 +89,15 @@ def confirmar_pagamento(
     if pedido.status != 'AGUARDANDO_PAGAMENTO':
         raise ValueError('O pedido não está aguardando pagamento.')
 
-    vendedor_id, produtos, total_real = _validar_produtos_do_pedido(pedido, itens)
+    vendedor_id, produtos, total_real = _validar_produtos_do_pedido(pedido, itens, payment_id)
     if valor_confirmado != total_real.quantize(Decimal('0.01')):
         raise ValueError('O valor confirmado pelo gateway não corresponde ao total atual dos produtos.')
 
     for produto in produtos:
         produto.disponivel = False
-        produto.save(update_fields=['disponivel'])
+        produto.reserva_pedido = None
+        produto.reservado_ate = None
+        produto.save(update_fields=['disponivel', 'reserva_pedido', 'reservado_ate'])
 
     pedido.status = 'PAGO'
     pedido.mercado_pago_payment_id = str(payment_id) if payment_id else pedido.mercado_pago_payment_id
