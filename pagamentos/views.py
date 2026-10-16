@@ -258,6 +258,7 @@ class ProcessarPagamentoView(APIView):
             pedido.mercado_pago_status = mp_status
             pedido.mercado_pago_status_detail = dados.get('status_detail')
             pedido.status = 'CANCELADO'
+            Produto.objects.filter(reserva_pedido=pedido).update(reserva_pedido=None, reservado_ate=None)
             pedido.save(update_fields=[
                 'status', 'mercado_pago_payment_id', 'mercado_pago_status',
                 'mercado_pago_status_detail', 'atualizado_em',
@@ -312,6 +313,8 @@ class ProcessarPagamentoView(APIView):
 
         total = Decimal('0.00')
         vendedores = set()
+        produtos = []
+        agora = timezone.now()
         for item in itens:
             produto = Produto.objects.select_for_update().filter(pk=item.produto_id).first()
             if produto is None or not produto.disponivel:
@@ -324,13 +327,33 @@ class ProcessarPagamentoView(APIView):
                     {'detail': 'Os itens do pedido não são válidos para pagamento.'},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            if produto.reserva_pedido_id != pedido.id:
+                return Response(
+                    {'detail': 'A reserva desta peça expirou ou pertence a outro pedido. Atualize o carrinho.'},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            if produto.reservado_ate is None or produto.reservado_ate <= agora:
+                pedido.status = 'CANCELADO'
+                pedido.save(update_fields=['status', 'atualizado_em'])
+                Produto.objects.filter(reserva_pedido=pedido).update(reserva_pedido=None, reservado_ate=None)
+                return Response(
+                    {'detail': 'A reserva expirou. Atualize o carrinho para verificar a disponibilidade.'},
+                    status=status.HTTP_409_CONFLICT,
+                )
             if Decimal(str(item.preco)) != Decimal(str(produto.preco)):
                 return Response(
                     {'detail': 'O preço de uma peça mudou. Atualize o carrinho e prepare o pedido novamente.'},
                     status=status.HTTP_409_CONFLICT,
                 )
             vendedores.add(produto.user_id)
+            produtos.append(produto)
             total += Decimal(str(produto.preco)) * item.quantidade
+
+        # Estende a reserva enquanto a tentativa de pagamento está sendo enviada ao gateway.
+        nova_expiracao = timezone.now() + timedelta(minutes=30)
+        for produto in produtos:
+            produto.reservado_ate = nova_expiracao
+            produto.save(update_fields=['reservado_ate'])
 
         if len(vendedores) != 1 or total <= Decimal('0.00'):
             return Response(
