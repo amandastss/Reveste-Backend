@@ -241,6 +241,20 @@ class ProcessarPagamentoView(APIView):
         return payload, None
 
     @staticmethod
+    def _registrar_pagamento_para_reconciliacao(dados, pedido):
+        # Nunca permita uma nova tentativa automática se o gateway reportou
+        # aprovação, mas os dados não podem ser conciliados com o pedido.
+        pedido.mercado_pago_payment_id = str(dados.get('id'))
+        pedido.mercado_pago_status = dados.get('status')
+        pedido.mercado_pago_status_detail = dados.get('status_detail')
+        pedido.save(update_fields=[
+            'mercado_pago_payment_id',
+            'mercado_pago_status',
+            'mercado_pago_status_detail',
+            'atualizado_em',
+        ])
+
+    @staticmethod
     def _resposta_pagamento(dados, pedido):
         mp_status = dados.get('status')
         payment_id = dados.get('id')
@@ -260,13 +274,15 @@ class ProcessarPagamentoView(APIView):
                     Decimal('0.00'),
                 ).quantize(Decimal('0.01'))
             except (InvalidOperation, TypeError, ValueError):
+                ProcessarPagamentoView._registrar_pagamento_para_reconciliacao(dados, pedido)
                 return Response(
-                    {'detail': 'Não foi possível validar o valor confirmado pelo gateway.'},
+                    {'detail': 'O pagamento foi criado, mas seu valor precisa ser verificado pelo suporte.'},
                     status=status.HTTP_409_CONFLICT,
                 )
             if valor_gateway != valor_pedido or dados.get('currency_id') != 'BRL':
+                ProcessarPagamentoView._registrar_pagamento_para_reconciliacao(dados, pedido)
                 return Response(
-                    {'detail': 'O valor ou a moeda do pagamento não corresponde ao pedido.'},
+                    {'detail': 'O pagamento foi criado, mas o valor ou a moeda precisa ser verificado pelo suporte.'},
                     status=status.HTTP_409_CONFLICT,
                 )
             try:
@@ -278,8 +294,12 @@ class ProcessarPagamentoView(APIView):
                     transaction_amount=valor_gateway,
                     currency_id=dados.get('currency_id'),
                 )
-            except ValueError as error:
-                return Response({'detail': str(error)}, status=status.HTTP_409_CONFLICT)
+            except ValueError:
+                ProcessarPagamentoView._registrar_pagamento_para_reconciliacao(dados, pedido)
+                return Response(
+                    {'detail': 'O gateway aprovou o pagamento, mas o pedido precisa de conciliação manual.'},
+                    status=status.HTTP_409_CONFLICT,
+                )
         elif mp_status in {'pending', 'in_process'}:
             pedido.mercado_pago_payment_id = str(payment_id)
             pedido.mercado_pago_status = mp_status
