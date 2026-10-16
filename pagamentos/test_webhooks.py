@@ -5,6 +5,8 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
+from django.utils import timezone
+from datetime import timedelta
 from rest_framework.test import APIClient
 
 from core.models import ItemPedido, Pedido, Produto, Venda
@@ -23,6 +25,9 @@ class MercadoPagoWebhookTests(TestCase):
             marca='Reveste', condicao='usado', user=seller, disponivel=True,
         )
         self.order = Pedido.objects.create(usuario=buyer, status='AGUARDANDO_PAGAMENTO')
+        self.product.reserva_pedido = self.order
+        self.product.reservado_ate = timezone.now() + timedelta(minutes=30)
+        self.product.save(update_fields=['reserva_pedido', 'reservado_ate'])
         ItemPedido.objects.create(
             pedido=self.order, produto=self.product, quantidade=1,
             preco=self.product.preco, nome=self.product.nome,
