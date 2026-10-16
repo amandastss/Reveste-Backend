@@ -121,6 +121,26 @@ class PaymentFlowTests(TestCase):
         self.assertTrue(self.product.disponivel)
         self.assertFalse(Venda.objects.filter(pedido=self.order).exists())
 
+    @override_settings(MERCADO_PAGO_ACCESS_TOKEN='TEST_TOKEN')
+    @patch('pagamentos.views.mercadopago.SDK')
+    def test_rejected_payment_cancels_order_and_releases_reservation(self, sdk):
+        self.client.post('/api/pagamentos/criar-checkout/')
+        sdk.return_value.payment.return_value.create.return_value = {'response': {
+            'id': 'payment-rejected', 'status': 'rejected', 'status_detail': 'cc_rejected',
+            'external_reference': str(self.order.id),
+        }}
+        response = self.client.post('/api/pagamentos/processar/', {
+            'pedido_id': self.order.id, 'token': 'mock-token',
+            'installments': 1, 'payment_method_id': 'visa',
+        }, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.product.refresh_from_db()
+        self.assertEqual(self.order.status, 'CANCELADO')
+        self.assertTrue(self.product.disponivel)
+        self.assertIsNone(self.product.reserva_pedido_id)
+        self.assertFalse(Venda.objects.filter(pedido=self.order).exists())
+
     def test_process_rejects_order_not_waiting_for_payment(self):
         response = self.client.post('/api/pagamentos/processar/', {
             'pedido_id': self.order.id, 'token': 'mock-token',
