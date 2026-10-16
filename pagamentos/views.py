@@ -1,8 +1,10 @@
+from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
 import mercadopago
 from django.conf import settings
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -36,16 +38,32 @@ class CriarCheckoutView(APIView):
         if not itens:
             return Response({'detail': 'O pedido não possui itens.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Se já existe uma tentativa no gateway, não criamos outra cobrança.
+        if pedido.mercado_pago_payment_id:
+            total_existente = sum(
+                (Decimal(str(item.preco)) * item.quantidade for item in itens),
+                Decimal('0.00'),
+            )
+            return Response({
+                'pedido_id': pedido.id,
+                'status': pedido.status,
+                'amount': float(total_existente),
+                'payer_email': request.user.email,
+                'payment_in_progress': True,
+                'payment_status': pedido.mercado_pago_status,
+            }, status=status.HTTP_200_OK)
+
+        agora = timezone.now()
         vendedores = set()
         total = Decimal('0.00')
         produtos_vistos = set()
+        produtos = []
 
         for item in itens:
             produto = Produto.objects.select_for_update().filter(pk=item.produto_id).first()
             if produto is None or not produto.disponivel:
-                nome = item.nome or 'Peça'
                 return Response(
-                    {'detail': f'A peça "{nome}" não está mais disponível.'},
+                    {'detail': f'A peça "{item.nome or "Peça"}" não está mais disponível.'},
                     status=status.HTTP_409_CONFLICT,
                 )
             if produto.user_id == request.user.id:
@@ -64,35 +82,56 @@ class CriarCheckoutView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            if produto.reserva_pedido_id and produto.reserva_pedido_id != pedido.id:
+                reserva_anterior = Pedido.objects.filter(pk=produto.reserva_pedido_id).only(
+                    'mercado_pago_payment_id'
+                ).first()
+                reserva_expirada = produto.reservado_ate is not None and produto.reservado_ate <= agora
+                pode_liberar = reserva_expirada and (
+                    reserva_anterior is None or not reserva_anterior.mercado_pago_payment_id
+                )
+                if not pode_liberar:
+                    return Response(
+                        {'detail': f'A peça "{produto.nome}" está reservada em outro checkout.'},
+                        status=status.HTTP_409_CONFLICT,
+                    )
+
             produtos_vistos.add(produto.id)
             vendedores.add(produto.user_id)
-            # Usa o preço atual do banco, nunca um total enviado pelo navegador.
-            item.preco = produto.preco
-            item.nome = produto.nome
-            item.save(update_fields=['preco', 'nome'])
-            total += produto.preco
+            produtos.append((item, produto))
+            total += Decimal(str(produto.preco))
 
         if len(vendedores) != 1:
             return Response(
                 {'detail': 'Todos os itens do pedido devem pertencer ao mesmo vendedor.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         if total <= Decimal('0.00'):
-            return Response({'detail': 'O total do pedido precisa ser maior que zero.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'detail': 'O total do pedido precisa ser maior que zero.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Só grava alterações depois que todos os itens passaram pela validação.
+        expiracao = agora + timedelta(minutes=15)
+        for item, produto in produtos:
+            item.preco = produto.preco
+            item.nome = produto.nome
+            item.save(update_fields=['preco', 'nome'])
+            produto.reserva_pedido = pedido
+            produto.reservado_ate = expiracao
+            produto.save(update_fields=['reserva_pedido', 'reservado_ate'])
 
         pedido.status = 'AGUARDANDO_PAGAMENTO'
         pedido.save(update_fields=['status', 'atualizado_em'])
 
-        return Response(
-            {
-                'pedido_id': pedido.id,
-                'status': pedido.status,
-                'amount': float(total),
-                'payer_email': request.user.email,
-            },
-            status=status.HTTP_200_OK,
-        )
+        return Response({
+            'pedido_id': pedido.id,
+            'status': pedido.status,
+            'amount': float(total),
+            'payer_email': request.user.email,
+        }, status=status.HTTP_200_OK)
+
 
 
 class ProcessarPagamentoView(APIView):
