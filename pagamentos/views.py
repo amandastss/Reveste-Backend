@@ -171,18 +171,20 @@ class ProcessarPagamentoView(APIView):
         mp_status = dados.get('status')
         payment_id = dados.get('id')
 
+        # Nenhum estado pode ser associado a um pedido diferente.
+        if str(dados.get('external_reference')) != str(pedido.id):
+            return Response(
+                {'detail': 'O pagamento retornado não corresponde ao pedido.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
         if mp_status == 'approved':
-            if str(dados.get('external_reference')) != str(pedido.id):
-                return Response(
-                    {'detail': 'O pagamento retornado não corresponde ao pedido.'},
-                    status=status.HTTP_409_CONFLICT,
-                )
             try:
-                valor_gateway = Decimal(str(dados.get('transaction_amount')))
+                valor_gateway = Decimal(str(dados.get('transaction_amount'))).quantize(Decimal('0.01'))
                 valor_pedido = sum(
                     (Decimal(str(item.preco)) * item.quantidade for item in pedido.itens.all()),
                     Decimal('0.00'),
-                )
+                ).quantize(Decimal('0.01'))
             except (InvalidOperation, TypeError, ValueError):
                 return Response(
                     {'detail': 'Não foi possível validar o valor confirmado pelo gateway.'},
@@ -208,43 +210,31 @@ class ProcessarPagamentoView(APIView):
             pedido.mercado_pago_payment_id = str(payment_id)
             pedido.mercado_pago_status = mp_status
             pedido.mercado_pago_status_detail = dados.get('status_detail')
-            pedido.save(
-                update_fields=[
-                    'mercado_pago_payment_id',
-                    'mercado_pago_status',
-                    'mercado_pago_status_detail',
-                    'atualizado_em',
-                ]
-            )
+            pedido.save(update_fields=[
+                'mercado_pago_payment_id', 'mercado_pago_status',
+                'mercado_pago_status_detail', 'atualizado_em',
+            ])
         elif mp_status in {'rejected', 'cancelled'}:
             pedido.mercado_pago_payment_id = str(payment_id)
             pedido.mercado_pago_status = mp_status
             pedido.mercado_pago_status_detail = dados.get('status_detail')
             pedido.status = 'CANCELADO'
-            pedido.save(
-                update_fields=[
-                    'status',
-                    'mercado_pago_payment_id',
-                    'mercado_pago_status',
-                    'mercado_pago_status_detail',
-                    'atualizado_em',
-                ]
-            )
+            pedido.save(update_fields=[
+                'status', 'mercado_pago_payment_id', 'mercado_pago_status',
+                'mercado_pago_status_detail', 'atualizado_em',
+            ])
         else:
             return Response(
                 {'detail': 'O Mercado Pago retornou um estado de pagamento que exige verificação.'},
                 status=status.HTTP_409_CONFLICT,
             )
 
-        return Response(
-            {
-                'id': payment_id,
-                'status': mp_status,
-                'status_detail': dados.get('status_detail'),
-                'pedido_id': pedido.id,
-            },
-            status=status.HTTP_200_OK,
-        )
+        return Response({
+            'id': payment_id,
+            'status': mp_status,
+            'status_detail': dados.get('status_detail'),
+            'pedido_id': pedido.id,
+        }, status=status.HTTP_200_OK)
 
     @transaction.atomic
     def post(self, request):
