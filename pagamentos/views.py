@@ -117,11 +117,16 @@ class CriarCheckoutView(APIView):
 
             if produto.reserva_pedido_id and produto.reserva_pedido_id != pedido.id:
                 reserva_anterior = Pedido.objects.filter(pk=produto.reserva_pedido_id).only(
-                    'mercado_pago_payment_id'
+                    'mercado_pago_payment_id',
+                    'mercado_pago_idempotency_key',
                 ).first()
                 reserva_expirada = produto.reservado_ate is not None and produto.reservado_ate <= agora
                 pode_liberar = reserva_expirada and (
-                    reserva_anterior is None or not reserva_anterior.mercado_pago_payment_id
+                    reserva_anterior is None
+                    or (
+                        not reserva_anterior.mercado_pago_payment_id
+                        and not reserva_anterior.mercado_pago_idempotency_key
+                    )
                 )
                 if not pode_liberar:
                     return Response(
