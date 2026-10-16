@@ -14,7 +14,7 @@ class PedidoViewSet(ModelViewSet):
             usuario=self.request.user
         ).prefetch_related(
             'itens__produto'
-        ).order_by('-data_pedido')
+        ).order_by('-criado_em')
 
     def perform_create(self, serializer):
         serializer.save(
