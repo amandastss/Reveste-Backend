@@ -116,7 +116,23 @@ class MercadoPagoWebhookView(APIView):
             )
         except ValueError as error:
             logger.warning('Pagamento aprovado não pôde confirmar o pedido %s: %s', pedido.id, error)
-            return Response({'detail': str(error)}, status=status.HTTP_409_CONFLICT)
+            # Registra o pagamento aprovado para impedir nova cobrança e permitir conciliação.
+            with transaction.atomic():
+                pedido_atual = Pedido.objects.select_for_update().get(id=pedido.id)
+                if pedido_atual.status != 'PAGO':
+                    pedido_atual.mercado_pago_payment_id = str(dados['payment_id'])
+                    pedido_atual.mercado_pago_status = pagamento.get('status')
+                    pedido_atual.mercado_pago_status_detail = pagamento.get('status_detail')
+                    pedido_atual.save(update_fields=[
+                        'mercado_pago_payment_id',
+                        'mercado_pago_status',
+                        'mercado_pago_status_detail',
+                        'atualizado_em',
+                    ])
+            return Response(
+                {'detail': 'O gateway aprovou o pagamento, mas o pedido precisa de conciliação manual.'},
+                status=status.HTTP_409_CONFLICT,
+            )
         except Exception:
             logger.exception('Erro ao confirmar pedido %s após pagamento aprovado.', pedido.id)
             return Response(
