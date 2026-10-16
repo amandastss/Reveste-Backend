@@ -8,7 +8,6 @@ class PedidoItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ItemPedido
-
         fields = [
             'id',
             'produto',
@@ -20,7 +19,6 @@ class PedidoItemSerializer(serializers.ModelSerializer):
             'imagem_url',
             'subtotal',
         ]
-
         read_only_fields = fields
 
     def get_subtotal(self, obj):
@@ -28,29 +26,23 @@ class PedidoItemSerializer(serializers.ModelSerializer):
 
 
 class PedidoSerializer(serializers.ModelSerializer):
-    itens = PedidoItemSerializer(
-        many=True,
-        read_only=True
-    )
-
+    itens = PedidoItemSerializer(many=True, read_only=True)
     total = serializers.SerializerMethodField()
 
     class Meta:
         model = Pedido
-
         fields = [
             'id',
             'usuario',
-            'data_pedido',
+            'criado_em',
             'status',
             'itens',
             'total',
         ]
-
         read_only_fields = fields
 
     def get_total(self, obj):
         return sum(
-            item.preco * item.quantidade
-            for item in obj.itens.all()
+            (item.preco * item.quantidade for item in obj.itens.all()),
+            start=0,
         )
