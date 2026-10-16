@@ -1,5 +1,6 @@
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
+from uuid import uuid4
 
 import mercadopago
 from django.conf import settings
@@ -172,13 +173,15 @@ class ProcessarPagamentoView(APIView):
     permission_classes = [IsAuthenticated]
 
     @staticmethod
-    def _criar_pagamento_mp(payload):
+    def _criar_pagamento_mp(payload, idempotency_key):
         token = getattr(settings, 'MERCADO_PAGO_ACCESS_TOKEN', None)
         if not token:
             return None, {'detail': 'Token privado do Mercado Pago não configurado.'}, status.HTTP_502_BAD_GATEWAY
 
+        request_options = mercadopago.config.RequestOptions()
+        request_options.custom_headers = {'x-idempotency-key': idempotency_key}
         try:
-            resposta = mercadopago.SDK(token).payment().create(payload)
+            resposta = mercadopago.SDK(token).payment().create(payload, request_options)
         except Exception:
             return (
                 None,
@@ -397,7 +400,15 @@ class ProcessarPagamentoView(APIView):
         if erro:
             return Response({'detail': erro}, status=status.HTTP_400_BAD_REQUEST)
 
-        dados, erro, erro_status = self._criar_pagamento_mp(payload)
+        # A mesma chave é reutilizada se a comunicação falhar após o gateway receber a cobrança.
+        if not pedido.mercado_pago_idempotency_key:
+            pedido.mercado_pago_idempotency_key = str(uuid4())
+            pedido.save(update_fields=['mercado_pago_idempotency_key', 'atualizado_em'])
+
+        dados, erro, erro_status = self._criar_pagamento_mp(
+            payload,
+            pedido.mercado_pago_idempotency_key,
+        )
         if erro:
             return Response(erro, status=erro_status)
 
