@@ -30,7 +30,9 @@ def _validar_produtos_do_pedido(pedido, itens, payment_id):
     produtos = []
     total = Decimal('0.00')
     for item in itens:
-        produto = Produto.objects.select_for_update().get(id=item.produto_id)
+        produto = Produto.objects.select_for_update().filter(id=item.produto_id).first()
+        if produto is None:
+            raise ValueError('Uma das peças do pedido não existe mais.')
         if not produto.disponivel:
             raise ValueError(f'O produto "{produto.nome}" não está mais disponível.')
         if produto.reserva_pedido_id != pedido.id:
