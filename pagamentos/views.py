@@ -22,12 +22,44 @@ class CriarCheckoutView(APIView):
 
     @transaction.atomic
     def post(self, request):
+        pedido_com_pagamento = (
+            Pedido.objects.select_for_update()
+            .filter(usuario=request.user, status='AGUARDANDO_PAGAMENTO')
+            .exclude(mercado_pago_payment_id__isnull=True)
+            .order_by('-atualizado_em')
+            .first()
+        )
+        if pedido_com_pagamento is not None:
+            total_existente = sum(
+                (Decimal(str(item.preco)) * item.quantidade for item in pedido_com_pagamento.itens.all()),
+                Decimal('0.00'),
+            )
+            return Response({
+                'pedido_id': pedido_com_pagamento.id,
+                'status': pedido_com_pagamento.status,
+                'amount': float(total_existente),
+                'payer_email': request.user.email,
+                'payment_in_progress': True,
+                'payment_status': pedido_com_pagamento.mercado_pago_status,
+            }, status=status.HTTP_200_OK)
+
         pedido = (
             Pedido.objects.select_for_update()
-            .filter(usuario=request.user, status__in=['PENDENTE', 'AGUARDANDO_PAGAMENTO'])
+            .filter(usuario=request.user, status='PENDENTE')
             .order_by('id')
             .first()
         )
+        if pedido is None:
+            pedido = (
+                Pedido.objects.select_for_update()
+                .filter(
+                    usuario=request.user,
+                    status='AGUARDANDO_PAGAMENTO',
+                    mercado_pago_payment_id__isnull=True,
+                )
+                .order_by('id')
+                .first()
+            )
         if pedido is None:
             return Response(
                 {'detail': 'Nenhum pedido disponível para pagamento foi encontrado.'},
