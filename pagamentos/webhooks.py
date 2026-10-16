@@ -89,6 +89,11 @@ class MercadoPagoWebhookView(APIView):
                 {'detail': 'Pagamento não encontrado no Mercado Pago.'},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
+        if str(pagamento.get('id')) != str(payment_id):
+            return None, Response(
+                {'detail': 'O ID retornado pelo Mercado Pago não corresponde à notificação.'},
+                status=status.HTTP_409_CONFLICT,
+            )
         pedido_id = pagamento.get('external_reference')
         if not pedido_id:
             return None, Response(
