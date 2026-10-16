@@ -141,6 +141,13 @@ class PaymentFlowTests(TestCase):
         self.assertIsNone(self.product.reserva_pedido_id)
         self.assertFalse(Venda.objects.filter(pedido=self.order).exists())
 
+    def test_order_status_endpoint_returns_status_for_checkout(self):
+        response = self.client.get(f'/api/pedidos/{self.order.id}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['id'], self.order.id)
+        self.assertEqual(response.data['status'], 'PENDENTE')
+        self.assertIn('criado_em', response.data)
+
     def test_process_rejects_order_not_waiting_for_payment(self):
         response = self.client.post('/api/pagamentos/processar/', {
             'pedido_id': self.order.id, 'token': 'mock-token',
