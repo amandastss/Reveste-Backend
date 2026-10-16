@@ -10,7 +10,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from core.models import Pedido
+from core.models import Pedido, Produto
 
 from .services import confirmar_pagamento
 
@@ -157,12 +157,20 @@ class MercadoPagoWebhookView(APIView):
                     pedido.mercado_pago_payment_id = payment_id
                     pedido.mercado_pago_status = pagamento_status
                     pedido.mercado_pago_status_detail = pagamento.get('status_detail')
-                    pedido.save(update_fields=[
+                    fields = [
                         'mercado_pago_payment_id',
                         'mercado_pago_status',
                         'mercado_pago_status_detail',
                         'atualizado_em',
-                    ])
+                    ]
+                    if pagamento_status in {'rejected', 'cancelled'}:
+                        pedido.status = 'CANCELADO'
+                        fields.append('status')
+                        Produto.objects.filter(reserva_pedido=pedido).update(
+                            reserva_pedido=None,
+                            reservado_ate=None,
+                        )
+                    pedido.save(update_fields=fields)
 
         return Response({
             'detail': 'Webhook processado.',
