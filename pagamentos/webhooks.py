@@ -160,6 +160,20 @@ class MercadoPagoWebhookView(APIView):
                 {'detail': 'A referência do pagamento não corresponde ao pedido.'},
                 status=status.HTTP_409_CONFLICT,
             )
+        if pedido.mercado_pago_payment_id and str(pedido.mercado_pago_payment_id) != payment_id:
+            return Response(
+                {'detail': 'O pedido já está associado a outro pagamento.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+        if (
+            pedido.mercado_pago_status in {'approved', 'rejected', 'cancelled'}
+            and pagamento_status != pedido.mercado_pago_status
+            and pagamento_status != 'approved'
+        ):
+            return Response(
+                {'detail': 'Notificação antiga ignorada; o pagamento já possui um estado terminal.'},
+                status=status.HTTP_200_OK,
+            )
 
         if pagamento_status == 'approved':
             erro_response = self._confirmar_pagamento_aprovado(pedido, dados)
