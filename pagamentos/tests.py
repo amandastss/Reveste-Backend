@@ -46,6 +46,26 @@ class PaymentFlowTests(TestCase):
         self.order.refresh_from_db()
         self.assertEqual(self.order.status, 'PENDENTE')
 
+    def test_checkout_reserves_unique_piece_for_first_buyer(self):
+        first_response = self.client.post('/api/pagamentos/criar-checkout/')
+        self.assertEqual(first_response.status_code, 200)
+
+        other_buyer = User.objects.create_user(
+            email='other-buyer@example.com', password='test-pass', name='Other Buyer'
+        )
+        other_order = Pedido.objects.create(usuario=other_buyer, status='PENDENTE')
+        ItemPedido.objects.create(
+            pedido=other_order, produto=self.product, quantidade=1,
+            preco=self.product.preco, nome=self.product.nome,
+        )
+        other_client = APIClient()
+        other_client.force_authenticate(user=other_buyer)
+        second_response = other_client.post('/api/pagamentos/criar-checkout/')
+
+        self.assertEqual(second_response.status_code, 409)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.reserva_pedido_id, self.order.id)
+
     @override_settings(MERCADO_PAGO_ACCESS_TOKEN='TEST_TOKEN')
     @patch('pagamentos.views.mercadopago.SDK')
     def test_approved_payment_confirms_order_and_sale(self, sdk):
