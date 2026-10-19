@@ -24,6 +24,12 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 CORS_ALLOW_ALL_ORIGINS = True
 
+# Permite vários arquivos por produto e aumenta o limite de payload do upload
+MAX_UPLOAD_SIZE = int(os.getenv('MAX_UPLOAD_SIZE', 50 * 1024 * 1024))
+DATA_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_SIZE
+FILE_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_SIZE
+DATA_UPLOAD_MAX_NUMBER_FIELDS = int(os.getenv('DATA_UPLOAD_MAX_NUMBER_FIELDS', 10000))
+
 # Aplicações instaladas
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -175,4 +181,4 @@ MERCADO_PAGO_WEBHOOK_URL = os.environ.get('MERCADO_PAGO_WEBHOOK_URL') or None
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
 
 # Exibe as configurações principais para verificação
-print(f'{MODE = } \n{MEDIA_URL = } \n{DATABASES = }')
+print(f'{MODE = } \n{MEDIA_URL = } \n{DATABASES = } \n{MAX_UPLOAD_SIZE = }')
