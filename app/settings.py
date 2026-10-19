@@ -166,11 +166,11 @@ SIMPLE_JWT = {
 
 MERCADO_PAGO_ACCESS_TOKEN = os.environ.get('MERCADO_PAGO_ACCESS_TOKEN')
 MERCADO_PAGO_WEBHOOK_SECRET = os.environ.get('MERCADO_PAGO_WEBHOOK_SECRET')
+# Configure esta URL apenas quando o backend estiver acessível publicamente.
+# O Mercado Pago não consegue chamar diretamente um endereço localhost.
+# Para testes locais sem túnel público, mantenha MERCADO_PAGO_WEBHOOK_URL vazio.
 BACKEND_URL = os.environ.get('BACKEND_URL', 'http://localhost:8000')
-MERCADO_PAGO_WEBHOOK_URL = os.environ.get(
-    'MERCADO_PAGO_WEBHOOK_URL',
-    f'{BACKEND_URL.rstrip("/")}/api/pagamentos/webhook/',
-)
+MERCADO_PAGO_WEBHOOK_URL = os.environ.get('MERCADO_PAGO_WEBHOOK_URL') or None
 
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
 
