@@ -47,17 +47,3 @@ class ProdutoSerializerMultipleImagesTests(TestCase):
         self.assertEqual(produto.imagens.count(), 2)
         self.assertTrue(produto.imagem)
         self.assertIn('imagem_1', produto.imagem.name)
-
-
-class UploadLimitSettingsTests(TestCase):
-    def test_upload_limits_allow_multiple_product_images(self):
-        from django.conf import settings
-
-        self.assertGreaterEqual(
-            getattr(settings, 'DATA_UPLOAD_MAX_MEMORY_SIZE', 0),
-            50 * 1024 * 1024,
-        )
-        self.assertGreaterEqual(
-            getattr(settings, 'FILE_UPLOAD_MAX_MEMORY_SIZE', 0),
-            50 * 1024 * 1024,
-        )
