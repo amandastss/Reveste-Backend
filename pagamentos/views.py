@@ -21,6 +21,34 @@ class CriarCheckoutView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @staticmethod
+    def _instrucoes_pagamento(pedido):
+        """Recupera instruções existentes para retomar um Pix/boleto sem criar cobrança nova."""
+        if not pedido.mercado_pago_payment_id:
+            return {}
+        token = getattr(settings, 'MERCADO_PAGO_ACCESS_TOKEN', None)
+        if not token:
+            return {}
+        try:
+            resposta = mercadopago.SDK(token).payment().get(pedido.mercado_pago_payment_id)
+            dados = resposta.get('response') if isinstance(resposta, dict) else None
+            if not isinstance(dados, dict):
+                return {}
+            if str(dados.get('external_reference')) != str(pedido.id):
+                return {}
+            interaction = (dados.get('point_of_interaction') or {}).get('transaction_data') or {}
+            details = dados.get('transaction_details') or {}
+            return {
+                'payment_status': dados.get('status') or pedido.mercado_pago_status,
+                'payment_method_id': dados.get('payment_method_id'),
+                'qr_code': interaction.get('qr_code'),
+                'qr_code_base64': interaction.get('qr_code_base64'),
+                'ticket_url': details.get('external_resource_url'),
+            }
+        except Exception:
+            # Não cria outra cobrança se a consulta do gateway falhar.
+            return {'payment_status': pedido.mercado_pago_status}
+
     @transaction.atomic
     def post(self, request):
         pedido_com_pagamento = (
@@ -41,7 +69,7 @@ class CriarCheckoutView(APIView):
                 'amount': float(total_existente),
                 'payer_email': request.user.email,
                 'payment_in_progress': True,
-                'payment_status': pedido_com_pagamento.mercado_pago_status,
+                **self._instrucoes_pagamento(pedido_com_pagamento),
             }, status=status.HTTP_200_OK)
 
         pedido = (
