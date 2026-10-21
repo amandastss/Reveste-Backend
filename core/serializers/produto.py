@@ -11,6 +11,9 @@ class ProductImageListField(serializers.ListField):
         if not value:
             return []
 
+        if hasattr(value, 'all'):
+            value = value.all()
+
         request = self.context.get('request')
         imagens = []
 

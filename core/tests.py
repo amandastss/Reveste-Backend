@@ -3,6 +3,7 @@ from io import BytesIO
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from PIL import Image
+from rest_framework.test import APIClient
 
 from core.models import Produto
 from core.models.user import User
@@ -47,3 +48,24 @@ class ProdutoSerializerMultipleImagesTests(TestCase):
         self.assertEqual(produto.imagens.count(), 2)
         self.assertTrue(produto.imagem)
         self.assertIn('imagem_1', produto.imagem.name)
+
+
+class ProdutoApiListTests(TestCase):
+    def test_list_products_without_images(self):
+        user = User.objects.create_user(
+            email='lista@teste.com',
+            password='senha123',
+            name='Vendedor',
+        )
+        Produto.objects.create(
+            descricao='Produto de teste',
+            nome='Camiseta',
+            preco='89.90',
+            marca='Reveste',
+            user=user,
+        )
+
+        response = APIClient().get('/api/produtos/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['results'][0]['imagens'], [])
