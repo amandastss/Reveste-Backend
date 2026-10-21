@@ -116,22 +116,47 @@ class CriarCheckoutView(APIView):
                 )
 
             if produto.reserva_pedido_id and produto.reserva_pedido_id != pedido.id:
-                reserva_anterior = Pedido.objects.filter(pk=produto.reserva_pedido_id).only(
-                    'mercado_pago_payment_id',
-                    'mercado_pago_idempotency_key',
-                ).first()
-                reserva_expirada = produto.reservado_ate is not None and produto.reservado_ate <= agora
-                pode_liberar = reserva_expirada and (
+                reserva_anterior = (
+                    Pedido.objects.select_for_update()
+                    .filter(pk=produto.reserva_pedido_id)
+                    .first()
+                )
+                reserva_expirada = (
+                    produto.reservado_ate is None
+                    or produto.reservado_ate <= agora
+                )
+                # Só podemos tomar a reserva de um checkout abandonado se o
+                # gateway ainda não tiver sido chamado. Uma chave de idempotência
+                # sem ID de pagamento é ambígua e exige reconciliação, não liberação.
+                reserva_sem_cobranca = (
                     reserva_anterior is None
                     or (
                         not reserva_anterior.mercado_pago_payment_id
                         and not reserva_anterior.mercado_pago_idempotency_key
                     )
                 )
+                mesma_compradora = (
+                    reserva_anterior is not None
+                    and reserva_anterior.usuario_id == request.user.id
+                )
+                pode_liberar = reserva_sem_cobranca and (
+                    reserva_expirada or mesma_compradora
+                )
                 if not pode_liberar:
                     return Response(
-                        {'detail': f'A peça "{produto.nome}" está reservada em outro checkout.'},
+                        {'detail': f'A peça "{produto.nome}" está reservada em outro checkout. Se for uma tentativa anterior sua, consulte Meus pedidos ou aguarde a expiração da reserva.'},
                         status=status.HTTP_409_CONFLICT,
+                    )
+                if reserva_anterior is not None and mesma_compradora:
+                    # A compradora iniciou outro checkout sem ter enviado uma
+                    # cobrança ao gateway. Cancela o checkout antigo e libera
+                    # suas reservas para o pedido atual, sem marcar peças vendidas.
+                    if reserva_anterior.status == 'AGUARDANDO_PAGAMENTO':
+                        reserva_anterior.status = 'CANCELADO'
+                        reserva_anterior.save(update_fields=['status', 'atualizado_em'])
+                    Produto.objects.filter(reserva_pedido=reserva_anterior).update(
+                        reserva_pedido=None,
+                        reservado_ate=None,
                     )
 
             produtos_vistos.add(produto.id)
