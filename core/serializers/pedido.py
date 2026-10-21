@@ -36,6 +36,9 @@ class PedidoSerializer(serializers.ModelSerializer):
             'usuario',
             'criado_em',
             'status',
+            'mercado_pago_status',
+            'mercado_pago_status_detail',
+            'pago_em',
             'itens',
             'total',
         ]
