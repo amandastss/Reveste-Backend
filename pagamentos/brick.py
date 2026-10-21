@@ -59,6 +59,10 @@ class ProcessarPagamentoBrickView(ProcessarPagamentoView):
             if any(not str(address.get(field, '')).strip() for field in required_address):
                 return None, 'Para gerar o boleto, preencha o endereço completo do pagador no formulário.'
             payer['address'] = {field: str(address[field]).strip() for field in required_address}
+            payer['address']['zip_code'] = ''.join(
+                character for character in payer['address']['zip_code'] if character.isdigit()
+            )
+            payer['address']['federal_unit'] = payer['address']['federal_unit'].upper()
             if not identification_type or not identification_number:
                 return None, 'Informe seu CPF no campo de documento para gerar o boleto.'
             if str(identification_type).upper() == 'CPF' and len(identification_number) != 11:
