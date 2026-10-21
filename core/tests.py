@@ -3,6 +3,7 @@ from io import BytesIO
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from PIL import Image
+from rest_framework import status
 from rest_framework.test import APIClient
 
 from core.models import Produto
@@ -51,6 +52,31 @@ class ProdutoSerializerMultipleImagesTests(TestCase):
 
 
 class ProdutoApiListTests(TestCase):
+    def test_create_product_returns_serialized_response(self):
+        user = User.objects.create_user(
+            email='cadastro@teste.com',
+            password='senha123',
+            name='Vendedor',
+        )
+        client = APIClient()
+        client.force_authenticate(user=user)
+
+        response = client.post(
+            '/api/produtos/',
+            {
+                'descricao': 'Produto de teste',
+                'nome': 'Camiseta',
+                'preco': '89.90',
+                'marca': 'Reveste',
+                'condicao': 'novo',
+            },
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data['imagens'] == []
+        assert Produto.objects.count() == 1
+
     def test_list_products_without_images(self):
         user = User.objects.create_user(
             email='lista@teste.com',
@@ -65,7 +91,7 @@ class ProdutoApiListTests(TestCase):
             user=user,
         )
 
-        response = APIClient().get('/api/produtos/')
+        response = APIClient().get('/api/produtos/?page_size=1000')
 
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data['results'][0]['imagens'], [])
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['results'][0]['imagens'] == []
