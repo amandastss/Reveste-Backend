@@ -270,10 +270,23 @@ class ProcessarPagamentoView(APIView):
 
         dados = resposta.get('response') if isinstance(resposta, dict) else None
         if not isinstance(dados, dict) or not dados.get('id') or not dados.get('status'):
+            # Retorna uma mensagem acionável sem expor tokens ou dados sensíveis.
+            mensagem = 'O Mercado Pago não aceitou os dados do pagamento.'
+            causas = dados.get('cause', []) if isinstance(dados, dict) else []
+            descricao = dados.get('message') if isinstance(dados, dict) else None
+            if causas and isinstance(causas, list):
+                descricoes = [
+                    str(causa.get('description') or causa.get('code'))
+                    for causa in causas[:3] if isinstance(causa, dict)
+                ]
+                if descricoes:
+                    mensagem += ' ' + ' '.join(descricoes)
+            elif descricao:
+                mensagem += ' ' + str(descricao)
             return (
                 None,
-                {'detail': 'O Mercado Pago retornou uma resposta inválida.'},
-                status.HTTP_502_BAD_GATEWAY,
+                {'detail': mensagem, 'gateway_status': resposta.get('status') if isinstance(resposta, dict) else None},
+                status.HTTP_400_BAD_REQUEST,
             )
         return dados, None, None
 
