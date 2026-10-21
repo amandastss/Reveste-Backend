@@ -1,3 +1,4 @@
+from django.conf import settings
 from rest_framework import status
 from rest_framework.response import Response
 
@@ -36,8 +37,9 @@ class ProcessarPagamentoBrickView(ProcessarPagamentoView):
         }
 
         if payment_method_id == 'pix':
-            # Pix não usa token de cartão nem parcelas.
-            pass
+            # O Pix exige documento do pagador, mas não token de cartão.
+            if not (isinstance(identification, dict) and identification.get('type') and identification.get('number')):
+                return None, 'Informe o CPF ou documento solicitado pelo Mercado Pago para pagar com Pix.'
         elif payment_method_id == 'bolbradesco':
             # O boleto precisa dos dados de endereço exigidos pelo Mercado Pago.
             address = payer_data.get('address') or {}
@@ -50,6 +52,8 @@ class ProcessarPagamentoBrickView(ProcessarPagamentoView):
             if any(not str(address.get(field, '')).strip() for field in required_address):
                 return None, 'Para gerar o boleto, preencha o endereço completo do pagador no formulário.'
             payer['address'] = {field: str(address[field]).strip() for field in required_address}
+            if not (isinstance(identification, dict) and identification.get('type') and identification.get('number')):
+                return None, 'Informe o CPF ou documento solicitado pelo Mercado Pago para gerar o boleto.'
             for field in ('first_name', 'last_name'):
                 value = payer_data.get(field)
                 if value:
@@ -70,7 +74,7 @@ class ProcessarPagamentoBrickView(ProcessarPagamentoView):
             if issuer_id:
                 payload['issuer_id'] = issuer_id
 
-        notification_url = getattr(__import__('django.conf', fromlist=['settings']).settings, 'MERCADO_PAGO_WEBHOOK_URL', None)
+        notification_url = getattr(settings, 'MERCADO_PAGO_WEBHOOK_URL', None)
         if notification_url:
             payload['notification_url'] = notification_url
         return payload, None
