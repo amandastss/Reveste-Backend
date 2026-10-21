@@ -1,6 +1,7 @@
 from django.urls import path
 
-from .views import CriarCheckoutView, ProcessarPagamentoView
+from .brick import ProcessarPagamentoBrickView
+from .views import CriarCheckoutView
 from .webhooks import MercadoPagoWebhookView
 
 urlpatterns = [
@@ -11,7 +12,7 @@ urlpatterns = [
     ),
     path(
         'processar/',
-        ProcessarPagamentoView.as_view(),
+        ProcessarPagamentoBrickView.as_view(),
         name='processar-pagamento',
     ),
     path(
