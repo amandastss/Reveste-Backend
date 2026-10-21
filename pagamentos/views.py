@@ -122,11 +122,32 @@ class CriarCheckoutView(APIView):
 
         for item in itens:
             produto = Produto.objects.select_for_update().filter(pk=item.produto_id).first()
-            if produto is None or not produto.disponivel:
+            if produto is None:
                 return Response(
-                    {'detail': f'A peça "{item.nome or "Peça"}" não está mais disponível.'},
+                    {'detail': f'A peça "{item.nome or "Peça"}" não foi encontrada.'},
                     status=status.HTTP_409_CONFLICT,
                 )
+            # Uma reserva pode deixar o produto indisponível no catálogo.
+            # Permita chegar à validação da reserva se ela pertence ao pedido
+            # atual ou a um checkout anterior da mesma compradora; reservas de
+            # terceiros continuam bloqueadas abaixo.
+            if not produto.disponivel:
+                reserva_atual = (
+                    Pedido.objects.filter(pk=produto.reserva_pedido_id).only('usuario_id').first()
+                    if produto.reserva_pedido_id else None
+                )
+                reserva_da_compradora = (
+                    produto.reserva_pedido_id == pedido.id
+                    or (
+                        reserva_atual is not None
+                        and reserva_atual.usuario_id == request.user.id
+                    )
+                )
+                if not reserva_da_compradora:
+                    return Response(
+                        {'detail': f'A peça "{produto.nome or item.nome or "Peça"}" não está mais disponível.'},
+                        status=status.HTTP_409_CONFLICT,
+                    )
             if produto.user_id == request.user.id:
                 return Response(
                     {'detail': 'Você não pode comprar sua própria peça.'},
