@@ -147,6 +147,9 @@ class PaymentFlowTests(TestCase):
         self.assertEqual(response.data['id'], self.order.id)
         self.assertEqual(response.data['status'], 'PENDENTE')
         self.assertIn('criado_em', response.data)
+        self.assertIn('mercado_pago_status', response.data)
+        self.assertIn('mercado_pago_status_detail', response.data)
+        self.assertIn('pago_em', response.data)
 
     def test_process_rejects_order_not_waiting_for_payment(self):
         response = self.client.post('/api/pagamentos/processar/', {
