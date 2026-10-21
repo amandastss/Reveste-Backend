@@ -42,11 +42,9 @@ class ProcessarPagamentoBrickView(ProcessarPagamentoView):
         }
 
         if payment_method_id == 'pix':
-            # Pix exige documento do pagador; o token de cartão não é necessário.
-            if not identification_type or not identification_number:
-                return None, 'Informe seu CPF no campo de documento para pagar com Pix.'
-            if str(identification_type).upper() == 'CPF' and len(identification_number) != 11:
-                return None, 'O CPF deve conter 11 números.'
+            # O Payment Brick já gera os dados necessários ao Pix. Não exigimos
+            # CPF/endereço adicional neste fluxo; o email da conta identifica o pagador.
+            pass
         elif payment_method_id == 'bolbradesco':
             # O boleto precisa dos dados de endereço exigidos pelo Mercado Pago.
             address = payer_data.get('address') or {}
