@@ -174,5 +174,5 @@ MERCADO_PAGO_WEBHOOK_URL = os.environ.get(
 
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
 
-# Exibe as configurações principais para verificação
-print(f'{MODE = } \n{MEDIA_URL = } \n{DATABASES = }')
+
+# Nunca imprima DATABASES, SECRET_KEY ou outras configurações sensíveis nos logs.
