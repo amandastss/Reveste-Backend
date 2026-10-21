@@ -22,10 +22,15 @@ class ProcessarPagamentoBrickView(ProcessarPagamentoView):
 
         payer = {'email': request.user.email}
         identification = payer_data.get('identification') or {}
-        if isinstance(identification, dict) and identification.get('type') and identification.get('number'):
+        identification_type = identification.get('type') if isinstance(identification, dict) else None
+        identification_number = ''.join(
+            character for character in str(identification.get('number', ''))
+            if character.isdigit()
+        ) if isinstance(identification, dict) else ''
+        if identification_type and identification_number:
             payer['identification'] = {
-                'type': str(identification['type']),
-                'number': str(identification['number']),
+                'type': str(identification_type).upper(),
+                'number': identification_number,
             }
 
         payload = {
@@ -37,9 +42,11 @@ class ProcessarPagamentoBrickView(ProcessarPagamentoView):
         }
 
         if payment_method_id == 'pix':
-            # O Pix exige documento do pagador, mas não token de cartão.
-            if not (isinstance(identification, dict) and identification.get('type') and identification.get('number')):
-                return None, 'Informe o CPF ou documento solicitado pelo Mercado Pago para pagar com Pix.'
+            # Pix exige documento do pagador; o token de cartão não é necessário.
+            if not identification_type or not identification_number:
+                return None, 'Informe seu CPF no campo de documento para pagar com Pix.'
+            if str(identification_type).upper() == 'CPF' and len(identification_number) != 11:
+                return None, 'O CPF deve conter 11 números.'
         elif payment_method_id == 'bolbradesco':
             # O boleto precisa dos dados de endereço exigidos pelo Mercado Pago.
             address = payer_data.get('address') or {}
@@ -52,8 +59,10 @@ class ProcessarPagamentoBrickView(ProcessarPagamentoView):
             if any(not str(address.get(field, '')).strip() for field in required_address):
                 return None, 'Para gerar o boleto, preencha o endereço completo do pagador no formulário.'
             payer['address'] = {field: str(address[field]).strip() for field in required_address}
-            if not (isinstance(identification, dict) and identification.get('type') and identification.get('number')):
-                return None, 'Informe o CPF ou documento solicitado pelo Mercado Pago para gerar o boleto.'
+            if not identification_type or not identification_number:
+                return None, 'Informe seu CPF no campo de documento para gerar o boleto.'
+            if str(identification_type).upper() == 'CPF' and len(identification_number) != 11:
+                return None, 'O CPF deve conter 11 números.'
             for field in ('first_name', 'last_name'):
                 value = payer_data.get(field)
                 if value:
