@@ -72,20 +72,23 @@ class CriarCheckoutView(APIView):
                 **self._instrucoes_pagamento(pedido_com_pagamento),
             }, status=status.HTTP_200_OK)
 
+        # Retome primeiro o pedido que já reservou a peça. Criar outro pedido
+        # PENDENTE antes dele fazia o checkout disputar a própria reserva e
+        # retornava 409 mesmo quando a compradora era a mesma.
         pedido = (
             Pedido.objects.select_for_update()
-            .filter(usuario=request.user, status='PENDENTE')
-            .order_by('id')
+            .filter(
+                usuario=request.user,
+                status='AGUARDANDO_PAGAMENTO',
+                mercado_pago_payment_id__isnull=True,
+            )
+            .order_by('-atualizado_em', '-id')
             .first()
         )
         if pedido is None:
             pedido = (
                 Pedido.objects.select_for_update()
-                .filter(
-                    usuario=request.user,
-                    status='AGUARDANDO_PAGAMENTO',
-                    mercado_pago_payment_id__isnull=True,
-                )
+                .filter(usuario=request.user, status='PENDENTE')
                 .order_by('id')
                 .first()
             )
