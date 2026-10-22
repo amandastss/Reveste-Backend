@@ -25,8 +25,10 @@ from core.views import (
     ItemPedidoViewSet,
     NotificacaoViewSet,
     PedidoViewSet,
+    PerguntaViewSet,
     ProdutoViewSet,
     ReviewListCreateView,
+    ReviewViewSet,
     SeguidorViewSet,
     UserEmailCheckView,
     UserRegistrationView,
@@ -53,6 +55,8 @@ router.register(r'vendas', VendaViewSet, basename='vendas')
 router.register(r'seguidores', SeguidorViewSet, basename='seguidores')
 router.register(r'historico-pesquisa', HistoricoPesquisaViewSet, basename='historico-pesquisa')
 router.register(r'notificacoes', NotificacaoViewSet, basename='notificacoes')
+router.register(r'perguntas', PerguntaViewSet, basename='perguntas')
+router.register(r'reviews', ReviewViewSet, basename='reviews')
 
 # ==========================================
 # DEFINIÇÃO DE ROTAS (URLS)

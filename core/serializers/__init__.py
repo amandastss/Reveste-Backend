@@ -12,5 +12,6 @@ from .seguidor import SeguidorSerializer
 from .historicoPesquisa import HistoricoPesquisaSerializer
 from .notificacao import NotificacaoSerializer
 from .sessaoLogin import SessaoLoginSerializer
+from .pergunta import PerguntaSerializer
 from .user import UserRegistrationSerializer, UserSerializer
 from .reviews import ReviewSerializer, ReviewImageSerializer

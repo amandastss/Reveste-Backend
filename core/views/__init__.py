@@ -15,4 +15,5 @@ from .notificacao import NotificacaoViewSet
 from .scanner import ScannerViewSet
 from .carrinho import CarrinhoView, FinalizarCompraView
 from .sessaoLogin import LoginView
+from .pergunta import PerguntaViewSet
 from .reviews import ReviewListCreateView, ReviewViewSet
