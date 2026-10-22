@@ -38,6 +38,20 @@ class PaymentFlowTests(TestCase):
         self.assertNotIn('preference_id', response.data)
         sdk.assert_not_called()
 
+    def test_checkout_reuses_existing_order_waiting_for_payment(self):
+        first_response = self.client.post('/api/pagamentos/criar-checkout/')
+        self.assertEqual(first_response.status_code, 200)
+
+        second_response = self.client.post('/api/pagamentos/criar-checkout/')
+        self.assertEqual(second_response.status_code, 200)
+        self.assertEqual(second_response.data['pedido_id'], first_response.data['pedido_id'])
+        self.assertEqual(second_response.data['amount'], first_response.data['amount'])
+
+        self.order.refresh_from_db()
+        self.product.refresh_from_db()
+        self.assertEqual(self.order.status, 'AGUARDANDO_PAGAMENTO')
+        self.assertEqual(self.product.reserva_pedido_id, self.order.id)
+
     def test_checkout_rejects_unavailable_product(self):
         self.product.disponivel = False
         self.product.save(update_fields=['disponivel'])
