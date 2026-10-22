@@ -46,6 +46,16 @@ class PerguntaAPITest(TestCase):
             ).exists()
         )
 
+    def test_pergunta_pode_ser_criada_sem_login(self):
+        response = self.client.post(
+            '/api/perguntas/',
+            {'produto': self.produto.id, 'texto': 'A camiseta é de algodão orgânico?'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(Pergunta.objects.filter(produto=self.produto, texto='A camiseta é de algodão orgânico?').exists())
+
     def test_vendedor_pode_responder_pergunta(self):
         pergunta = Pergunta.objects.create(
             produto=self.produto,

@@ -1,7 +1,7 @@
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
@@ -11,7 +11,11 @@ from core.serializers import PerguntaSerializer
 
 class PerguntaViewSet(ModelViewSet):
     serializer_class = PerguntaSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get_permissions(self):
+        if self.action in {'responder', 'minhas'}:
+            return [IsAuthenticated()]
+        return [AllowAny()]
 
     def get_queryset(self):
         queryset = Pergunta.objects.select_related('produto', 'user').order_by('-criado_em')
@@ -27,10 +31,11 @@ class PerguntaViewSet(ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
-        pergunta = serializer.save(user=self.request.user)
+        user = self.request.user if self.request.user.is_authenticated else None
+        pergunta = serializer.save(user=user)
 
         produto = pergunta.produto
-        if produto.user and produto.user != self.request.user:
+        if produto.user and self.request.user.is_authenticated and produto.user != self.request.user:
             Notificacao.objects.create(
                 usuario=produto.user,
                 mensagem=f"Nova pergunta sobre o produto '{produto.nome}'."

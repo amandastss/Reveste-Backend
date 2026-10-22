@@ -33,6 +33,8 @@ class PerguntaSerializer(serializers.ModelSerializer):
         ]
 
     def get_user_name(self, obj):
+        if obj.user is None:
+            return 'Visitante'
         return obj.user.name if hasattr(obj.user, 'name') else obj.user.email
 
     def get_produto_nome(self, obj):

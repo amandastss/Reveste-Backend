@@ -12,8 +12,10 @@ class Pergunta(models.Model):
     )
     user = models.ForeignKey(
         User,
-        on_delete=models.CASCADE,
-        related_name='perguntas_feitas'
+        on_delete=models.SET_NULL,
+        related_name='perguntas_feitas',
+        null=True,
+        blank=True,
     )
     texto = models.TextField()
     resposta = models.TextField(null=True, blank=True)
