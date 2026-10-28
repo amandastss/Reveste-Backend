@@ -24,7 +24,11 @@ class CarrinhoView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def get(self, request):
-        pedido = Pedido.objects.filter(usuario=request.user,status='PENDENTE').order_by('id').first()
+        pedido = Pedido.objects.filter(usuario=request.user,status='AGUARDANDO_PAGAMENTO').exclude(mercado_pago_payment_id__isnull=True).order_by('-id').first()
+        if pedido is None:
+            pedido = Pedido.objects.filter(usuario=request.user,status='PENDENTE').order_by('id').first()
+        if pedido is None:
+            pedido = Pedido.objects.filter(usuario=request.user,status='AGUARDANDO_PAGAMENTO').order_by('-id').first()
         if not pedido:
             return Response({'pedido_id':None,'status':'VAZIO','itens':[],'total':'0.00'})
         itens = list(pedido.itens.select_related('produto').all())
@@ -77,7 +81,7 @@ class FinalizarCompraView(APIView):
     def post(self, request):
         pedido=Pedido.objects.select_for_update().filter(usuario=request.user,status='PENDENTE').order_by('id').first()
         if not pedido:
-            pedido=Pedido.objects.filter(usuario=request.user,status='AGUARDANDO_PAGAMENTO').exclude(mercado_pago_payment_id__isnull=True).order_by('-id').first()
+            pedido=Pedido.objects.filter(usuario=request.user,status='AGUARDANDO_PAGAMENTO').order_by('-id').first()
             if pedido:
                 return Response({'pedido_id':pedido.id,'status':pedido.status})
             return Response({'detail':'Nenhum pedido pendente foi encontrado.'},status=status.HTTP_404_NOT_FOUND)
