@@ -94,7 +94,13 @@ def _confirm(pedido, data):
     pedido.mercado_pago_status_detail = data.get('status_detail')
     pedido.pago_em = timezone.now()
     pedido.save(update_fields=['status','mercado_pago_payment_id','mercado_pago_status','mercado_pago_status_detail','pago_em'])
-    Venda.objects.get_or_create(pedido=pedido)
+    vendedor_id = next(iter(sellers))
+    venda = Venda.objects.filter(pedido=pedido).order_by('id').first()
+    if venda is None:
+        Venda.objects.create(pedido=pedido, vendedor_id=vendedor_id)
+    elif venda.vendedor_id is None:
+        venda.vendedor_id = vendedor_id
+        venda.save(update_fields=['vendedor'])
     return pedido
 
 
