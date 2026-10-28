@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
 from django.test import override_settings
-from rest_framework.test import APITestCase, APIClient
+from rest_framework.test import APITestCase
 
 from core.models import Categoria, ItemPedido, Pedido, Produto, Venda
 
@@ -72,7 +72,8 @@ class CheckoutPaymentTests(APITestCase):
         self.assertEqual(self.order.status, 'PAGO')
         self.assertFalse(self.product.disponivel)
         self.assertEqual(self.order.mercado_pago_payment_id, '123456')
-        self.assertTrue(Venda.objects.filter(pedido=self.order).exists())
+        sale = Venda.objects.get(pedido=self.order)
+        self.assertEqual(sale.vendedor_id, self.seller.id)
         self.assertEqual(response.data['qr_code'], 'pix-copia-cola')
 
     @patch('pagamentos.views.requests.request')
