@@ -116,7 +116,13 @@ class CriarCheckoutView(APIView):
                 if str(payment.get('external_reference')) != str(order.id):
                     return Response({'detail':'A cobrança existente não corresponde ao pedido.'},status=status.HTTP_409_CONFLICT)
                 if payment.get('status') == 'approved':
-                    _confirm(order,payment)
+                    order = _confirm(order,payment)
+                elif payment.get('status') in {'rejected', 'cancelled'} and order.status != 'PAGO':
+                    order.status = 'CANCELADO'
+                    order.mercado_pago_status = payment.get('status')
+                    order.mercado_pago_status_detail = payment.get('status_detail')
+                    order.save(update_fields=['status', 'mercado_pago_status', 'mercado_pago_status_detail'])
+                    Produto.objects.filter(reserva_pedido=order).update(reserva_pedido=None, reservado_ate=None)
                 return Response({'pedido_id':order.id,'status':order.status,'amount':float(_total(order)),'payer_email':request.user.email,'payment_in_progress':True,'payment_status':payment.get('status'),**_instructions(payment)})
             except (RuntimeError, ValueError, requests.RequestException):
                 return Response({'detail':'Não foi possível consultar a cobrança existente. Não tente pagar novamente até consultar o pedido.'},status=status.HTTP_503_SERVICE_UNAVAILABLE)
@@ -159,9 +165,10 @@ class CriarCheckoutView(APIView):
 class ProcessarPagamentoView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request):
         order_id=request.data.get('pedido_id')
-        order=Pedido.objects.filter(pk=order_id,usuario=request.user).first()
+        order=Pedido.objects.select_for_update().filter(pk=order_id,usuario=request.user).first()
         if not order:
             return Response({'detail':'Pedido não encontrado.'},status=status.HTTP_404_NOT_FOUND)
         if order.status=='PAGO':
