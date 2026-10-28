@@ -13,6 +13,7 @@ class Migration(migrations.Migration):
         migrations.AddField(model_name='produto', name='disponivel', field=models.BooleanField(default=True)),
         migrations.AddField(model_name='produto', name='reserva_pedido', field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='produtos_reservados', to='core.pedido')),
         migrations.AddField(model_name='produto', name='reservado_ate', field=models.DateTimeField(blank=True, null=True)),
+        migrations.AlterField(model_name='itempedido', name='quantidade', field=models.PositiveIntegerField(default=1)),
         migrations.AddField(model_name='itempedido', name='preco', field=models.DecimalField(blank=True, decimal_places=2, max_digits=10, null=True)),
         migrations.AddField(model_name='itempedido', name='nome', field=models.CharField(blank=True, max_length=120, null=True)),
         migrations.AddField(model_name='itempedido', name='cor', field=models.CharField(blank=True, max_length=60, null=True)),

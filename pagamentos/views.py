@@ -176,6 +176,9 @@ class ProcessarPagamentoView(APIView):
             digits=''.join(c for c in str(ident['number']) if c.isdigit())
             payer['identification']={'type':str(ident['type']).upper(),'number':digits}
         payload={'transaction_amount':float(_total(order)),'description':f'Reveste - Pedido #{order.id}','payment_method_id':method,'external_reference':str(order.id),'payer':payer}
+        notification_url=getattr(settings,'MERCADO_PAGO_WEBHOOK_URL','')
+        if notification_url:
+            payload['notification_url']=notification_url
         if method=='pix':
             pass
         elif method in {'bolbradesco','ticket'}:
