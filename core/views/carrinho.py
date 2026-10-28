@@ -37,6 +37,9 @@ class CarrinhoView(APIView):
 
     @transaction.atomic
     def post(self, request):
+        pagamento_ativo = Pedido.objects.filter(usuario=request.user, status='AGUARDANDO_PAGAMENTO').exclude(mercado_pago_payment_id__isnull=True).exists()
+        if pagamento_ativo:
+            return Response({'detail':'Você já tem um pagamento em andamento. Consulte o pedido antes de iniciar outra compra.'}, status=status.HTTP_409_CONFLICT)
         product_id=request.data.get('productId')
         if not product_id:
             return Response({'detail':'productId é obrigatório.'},status=status.HTTP_400_BAD_REQUEST)
@@ -79,11 +82,11 @@ class FinalizarCompraView(APIView):
 
     @transaction.atomic
     def post(self, request):
+        pedido=Pedido.objects.select_for_update().filter(usuario=request.user,status='AGUARDANDO_PAGAMENTO').order_by('-id').first()
+        if pedido:
+            return Response({'pedido_id':pedido.id,'status':pedido.status})
         pedido=Pedido.objects.select_for_update().filter(usuario=request.user,status='PENDENTE').order_by('id').first()
         if not pedido:
-            pedido=Pedido.objects.filter(usuario=request.user,status='AGUARDANDO_PAGAMENTO').order_by('-id').first()
-            if pedido:
-                return Response({'pedido_id':pedido.id,'status':pedido.status})
             return Response({'detail':'Nenhum pedido pendente foi encontrado.'},status=status.HTTP_404_NOT_FOUND)
         itens=list(pedido.itens.select_related('produto').all())
         if not itens:

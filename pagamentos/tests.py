@@ -116,6 +116,23 @@ class CheckoutPaymentTests(APITestCase):
         self.order.refresh_from_db()
         self.assertEqual(self.order.status, 'AGUARDANDO_PAGAMENTO')
 
+    def test_existing_payment_order_is_prioritized_over_new_cart(self):
+        self.order.status = 'AGUARDANDO_PAGAMENTO'
+        self.order.mercado_pago_payment_id = 'existing-payment'
+        self.order.save(update_fields=['status', 'mercado_pago_payment_id'])
+        other_product = Produto.objects.create(
+            nome='Calça teste', descricao='Outra peça', preco=Decimal('40.00'),
+            marca='Reveste', condicao='usado', categoria=self.product.categoria,
+            vendedor=self.seller,
+        )
+        new_order = Pedido.objects.create(usuario=self.buyer)
+        ItemPedido.objects.create(pedido=new_order, produto=other_product, quantidade=1, preco=other_product.preco)
+        response = self.client.post('/api/carrinho/finalizar/', {}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['pedido_id'], self.order.id)
+        cart = self.client.get('/api/carrinho/')
+        self.assertEqual(cart.data['pedido_id'], self.order.id)
+
     def test_customer_cannot_read_another_users_order(self):
         other = get_user_model().objects.create_user(
             email='other@example.com', password='test-pass', name='Other',
