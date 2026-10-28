@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework.serializers import (
     CharField,
     CurrentUserDefault,
@@ -45,7 +47,7 @@ class PedidoListSerializer(ModelSerializer):
         fields = ('id', 'usuario', 'status', 'criado_em', 'total_pedido', 'itens')
 
     def get_total_pedido(self, instance):
-        return sum([item.quantidade * item.produto.preco for item in instance.itens.all()])
+        return sum((item.subtotal for item in instance.itens.all()), Decimal('0.00'))
 
 
 PedidoSerializer = PedidoListSerializer
