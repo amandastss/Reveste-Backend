@@ -75,6 +75,46 @@ class CheckoutPaymentTests(APITestCase):
         self.assertTrue(Venda.objects.filter(pedido=self.order).exists())
         self.assertEqual(response.data['qr_code'], 'pix-copia-cola')
 
+    @patch('pagamentos.views.requests.request')
+    def test_boleto_requires_address_and_returns_ticket_url(self, request_mock):
+        checkout = self.client.post('/api/pagamentos/criar-checkout/', {}, format='json')
+        self.assertEqual(checkout.status_code, 200)
+        request_mock.return_value = Mock(
+            ok=True,
+            status_code=201,
+            json=Mock(return_value={
+                'id': 789012,
+                'status': 'pending',
+                'status_detail': 'pending_waiting_payment',
+                'currency_id': 'BRL',
+                'transaction_amount': 75.00,
+                'external_reference': str(self.order.id),
+                'payment_method_id': 'bolbradesco',
+                'transaction_details': {'external_resource_url': 'https://example.test/boleto'},
+            }),
+        )
+        response = self.client.post('/api/pagamentos/processar/', {
+            'pedido_id': self.order.id,
+            'payment_method_id': 'bolbradesco',
+            'payer': {
+                'first_name': 'Buyer',
+                'last_name': 'Teste',
+                'identification': {'type': 'CPF', 'number': '123.456.789-09'},
+                'address': {
+                    'street_name': 'Rua de Teste',
+                    'street_number': '123',
+                    'neighborhood': 'Centro',
+                    'city': 'Araquari',
+                    'federal_unit': 'SC',
+                    'zip_code': '89245000',
+                },
+            },
+        }, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['ticket_url'], 'https://example.test/boleto')
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, 'AGUARDANDO_PAGAMENTO')
+
     def test_customer_cannot_read_another_users_order(self):
         other = get_user_model().objects.create_user(
             email='other@example.com', password='test-pass', name='Other',
