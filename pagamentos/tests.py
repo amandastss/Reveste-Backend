@@ -133,6 +133,15 @@ class CheckoutPaymentTests(APITestCase):
         cart = self.client.get('/api/carrinho/')
         self.assertEqual(cart.data['pedido_id'], self.order.id)
 
+    def test_customer_cannot_read_another_users_order_item(self):
+        other = get_user_model().objects.create_user(
+            email='other-item@example.com', password='test-pass', name='Other',
+        )
+        self.client.force_authenticate(other)
+        item = self.order.itens.first()
+        response = self.client.get(f'/api/itens-pedido/{item.id}/')
+        self.assertEqual(response.status_code, 404)
+
     def test_customer_cannot_read_another_users_order(self):
         other = get_user_model().objects.create_user(
             email='other@example.com', password='test-pass', name='Other',
