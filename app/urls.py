@@ -2,53 +2,21 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
-from drf_spectacular.views import (
-    SpectacularAPIView,
-    SpectacularRedocView,
-    SpectacularSwaggerView,
-)
+from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
-    TokenRefreshView,
-    TokenVerifyView,
-)
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView, TokenVerifyView
 
 from core.views import (
-    BuscaImagemViewSet,
-    CategoriaViewSet,
-    FavoritoViewSet,
-    HistoricoPesquisaViewSet,
-    ImagemProdutoViewSet,
-    ItemPedidoViewSet,
-    NotificacaoViewSet,
-    PedidoViewSet,
-    ProdutoViewSet,
-    ReviewListCreateView,
-    SeguidorViewSet,
-    UserEmailCheckView,
-    UserRegistrationView,
-    UserViewSet,
-    VendaViewSet,
-    CarrinhoView,
+    BuscaImagemViewSet, CategoriaViewSet, FavoritoViewSet, HistoricoPesquisaViewSet,
+    ImagemProdutoViewSet, ItemPedidoViewSet, NotificacaoViewSet, PedidoViewSet,
+    ProdutoViewSet, ReviewListCreateView, SeguidorViewSet, UserEmailCheckView,
+    UserRegistrationView, UserViewSet, VendaViewSet, CarrinhoView,
 )
-
-urlpatterns = [
-    path('admin/', admin.site.urls),
-]
-
-if settings.DEBUG:
-    urlpatterns += static(
-        settings.MEDIA_URL,
-        document_root=settings.MEDIA_ROOT
-    )
-
-# IMPORT CORRETO (só um!)
-from core.views.sessaoLogin import LoginView  # noqa: E402
-from uploader.router import router as uploader_router  # noqa: E402
+from core.views.carrinho import FinalizarCompraView
+from core.views.sessaoLogin import LoginView
+from uploader.router import router as uploader_router
 
 router = DefaultRouter()
-
 router.register(r'usuarios', UserViewSet, basename='usuarios')
 router.register(r'produtos', ProdutoViewSet, basename='produtos')
 router.register(r'busca-imagem', BuscaImagemViewSet, basename='busca-imagem')
@@ -64,34 +32,22 @@ router.register(r'notificacoes', NotificacaoViewSet, basename='notificacoes')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-
-    # DOCS
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/doc/', SpectacularSwaggerView.as_view(url_name='schema')),
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema')),
-
-    # AUTH JWT
     path('api/token/', TokenObtainPairView.as_view()),
     path('api/token/refresh/', TokenRefreshView.as_view()),
     path('api/token/verify/', TokenVerifyView.as_view()),
-
-    # REGISTRO
     path('api/registro/', UserRegistrationView.as_view()),
     path('api/check-email/', UserEmailCheckView.as_view()),
-
-    # LOGIN (SÓ UM PADRÃO)
     path('api/login/', LoginView.as_view(), name='login'),
-
-    # CARRINHO
     path('api/carrinho/', CarrinhoView.as_view()),
-
-    # API PRINCIPAL
+    path('api/carrinho/finalizar/', FinalizarCompraView.as_view()),
+    path('api/pagamentos/', include('pagamentos.urls')),
     path('api/', include(router.urls)),
     path('api/reviews/<int:produto_id>/', ReviewListCreateView.as_view()),
-
-    # UPLOADS
     path('api/media/', include(uploader_router.urls)),
-    path("api/", include("posts.urls")),
+    path('api/', include('posts.urls')),
 ]
-
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

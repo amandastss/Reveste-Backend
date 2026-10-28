@@ -1,22 +1,19 @@
-from rest_framework.serializers import CharField, ModelSerializer, SerializerMethodField
-
+from rest_framework.serializers import ModelSerializer, SerializerMethodField
 from ..models.itemPedido import ItemPedido
 
-
 class ItemPedidoListSerializer(ModelSerializer):
-    produto_nome = CharField(source='produto.nome', read_only=True)
+    produto_nome = SerializerMethodField()
     total = SerializerMethodField()
-
     class Meta:
         model = ItemPedido
-        fields = ('id', 'produto_nome', 'quantidade', 'total')
-        depth = 1
-
+        fields = ('id','produto','produto_nome','quantidade','preco','nome','cor','tamanho','imagem_url','total')
+    def get_produto_nome(self, instance):
+        return instance.nome or instance.produto.nome
     def get_total(self, instance):
-        return instance.quantidade * instance.produto.preco
-
+        return instance.subtotal
 
 class ItemPedidoCreateUpdateSerializer(ModelSerializer):
     class Meta:
         model = ItemPedido
-        fields = ('id', 'produto', 'quantidade')
+        fields = ('id','produto','quantidade','preco','nome','cor','tamanho','imagem_url')
+        read_only_fields = ('preco','nome','cor','tamanho','imagem_url')

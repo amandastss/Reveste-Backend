@@ -1,15 +1,10 @@
-from rest_framework.viewsets import ModelViewSet
-
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.viewsets import ReadOnlyModelViewSet
 from ..models import Pedido
-from ..serializers.pedido import PedidoCreateUpdateSerializer, PedidoListSerializer
+from ..serializers.pedido import PedidoListSerializer
 
-
-class PedidoViewSet(ModelViewSet):
-    queryset = Pedido.objects.all()
-
-    def get_serializer_class(self):
-        if self.action in {'list', 'retrieve'}:
-            return PedidoListSerializer
-        if self.action in {'create', 'update', 'partial_update'}:
-            return PedidoCreateUpdateSerializer
-        return PedidoListSerializer
+class PedidoViewSet(ReadOnlyModelViewSet):
+    serializer_class = PedidoListSerializer
+    permission_classes = (IsAuthenticated,)
+    def get_queryset(self):
+        return Pedido.objects.filter(usuario=self.request.user).prefetch_related('itens__produto')
