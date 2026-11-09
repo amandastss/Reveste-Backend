@@ -35,10 +35,12 @@ class PerguntaViewSet(ModelViewSet):
         pergunta = serializer.save(user=user)
 
         produto = pergunta.produto
-        if produto.user and self.request.user.is_authenticated and produto.user != self.request.user:
+        if user is not None and produto.user and produto.user != user:
             Notificacao.objects.create(
                 usuario=produto.user,
-                mensagem=f"Nova pergunta sobre o produto '{produto.nome}'."
+                produto=produto,
+                pergunta=pergunta,
+                mensagem=f"Nova pergunta sobre o produto '{produto.nome}'.",
             )
 
     @action(detail=True, methods=['patch'], url_path='responder')

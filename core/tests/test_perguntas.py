@@ -1,4 +1,8 @@
+from io import BytesIO
+
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
+from PIL import Image
 from rest_framework.test import APIClient
 
 from core.models import Notificacao, Pergunta, Produto, User
@@ -6,6 +10,7 @@ from core.models import Notificacao, Pergunta, Produto, User
 
 class PerguntaAPITest(TestCase):
     def setUp(self):
+        Notificacao.objects.all().delete()
         self.client = APIClient()
         self.seller = User.objects.create_user(
             email='vendedor@email.com',
@@ -54,7 +59,58 @@ class PerguntaAPITest(TestCase):
         )
 
         self.assertEqual(response.status_code, 201)
-        self.assertTrue(Pergunta.objects.filter(produto=self.produto, texto='A camiseta é de algodão orgânico?').exists())
+        self.assertTrue(
+            Pergunta.objects.filter(produto=self.produto, texto='A camiseta é de algodão orgânico?').exists()
+        )
+
+    def test_criar_pergunta_retorna_dados_do_usuario_que_perguntou(self):
+        image = BytesIO()
+        Image.new('RGB', (50, 50), color='red').save(image, format='PNG')
+        image.seek(0)
+        self.buyer.profile_image = SimpleUploadedFile('buyer.png', image.read(), content_type='image/png')
+        self.buyer.save()
+
+        self.client.force_authenticate(user=self.buyer)
+        response = self.client.post(
+            '/api/perguntas/',
+            {'produto': self.produto.id, 'texto': 'Essa camiseta é 100% algodão?'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertIn('usuario', response.data)
+        self.assertEqual(response.data['user'], self.buyer.id)
+        self.assertEqual(response.data['usuario']['id'], self.buyer.id)
+        self.assertEqual(response.data['usuario']['name'], self.buyer.name)
+        self.assertTrue(response.data['foto'])
+        self.assertTrue(response.data['profile_image'])
+
+    def test_notificacao_inclui_produto_pergunta_link_e_permite_marcar_como_lida(self):
+        self.client.force_authenticate(user=self.buyer)
+        created = self.client.post(
+            '/api/perguntas/',
+            {'produto': self.produto.id, 'texto': 'A camisa tem manga curta?'},
+            format='json',
+        )
+
+        self.client.force_authenticate(user=self.seller)
+        list_response = self.client.get('/api/notificacoes/')
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(len(list_response.data['results']), 1)
+        notification = list_response.data['results'][0]
+        self.assertEqual(notification['usuario'], self.seller.id)
+        self.assertEqual(notification['produto_id'], self.produto.id)
+        self.assertEqual(notification['pergunta_id'], created.data['id'])
+        self.assertIn(f'/produto/{self.produto.id}/perguntas?pergunta_id={created.data["id"]}', notification['link'])
+        self.assertFalse(notification['lida'])
+
+        patch_response = self.client.patch(
+            f'/api/notificacoes/{notification["id"]}/',
+            {'lida': True},
+            format='json',
+        )
+        self.assertEqual(patch_response.status_code, 200)
+        self.assertTrue(patch_response.data['lida'])
 
     def test_vendedor_pode_responder_pergunta(self):
         pergunta = Pergunta.objects.create(
