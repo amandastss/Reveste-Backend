@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django_filters',
     'drf_spectacular',
     'rest_framework',
+    'pagamentos',
     'uploader',
     'core',
     'posts',
@@ -129,9 +130,7 @@ else:
     CLOUDINARY_URL = os.getenv('CLOUDINARY_URL')
     STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
     STORAGES = {
-        'default': {
-            'BACKEND': 'cloudinary_storage.storage.MediaCloudinaryStorage'
-        },
+        'default': {'BACKEND': 'cloudinary_storage.storage.MediaCloudinaryStorage'},
         'staticfiles': {
             'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
         },
@@ -165,5 +164,15 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-# Exibe as configurações principais para verificação
-print(f'{MODE = } \n{MEDIA_URL = } \n{DATABASES = }')
+MERCADO_PAGO_ACCESS_TOKEN = os.environ.get('MERCADO_PAGO_ACCESS_TOKEN')
+MERCADO_PAGO_WEBHOOK_SECRET = os.environ.get('MERCADO_PAGO_WEBHOOK_SECRET')
+BACKEND_URL = os.environ.get('BACKEND_URL', 'http://localhost:8000')
+MERCADO_PAGO_WEBHOOK_URL = os.environ.get(
+    'MERCADO_PAGO_WEBHOOK_URL',
+    f'{BACKEND_URL.rstrip("/")}/api/pagamentos/webhook/',
+)
+
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
+
+
+# Nunca imprima DATABASES, SECRET_KEY ou outras configurações sensíveis nos logs.

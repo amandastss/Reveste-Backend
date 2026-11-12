@@ -1,52 +1,51 @@
-from rest_framework.serializers import (
-    CharField,
-    CurrentUserDefault,
-    HiddenField,
-    ModelSerializer,
-    SerializerMethodField,
-)
+from rest_framework import serializers
 
-from ..models.itemPedido import ItemPedido
-from ..models.pedido import Pedido
-from .itemPedido import ItemPedidoCreateUpdateSerializer, ItemPedidoListSerializer
+from core.models import ItemPedido, Pedido
 
 
-class PedidoCreateUpdateSerializer(ModelSerializer):
-    usuario = HiddenField(default=CurrentUserDefault())
-    itens = ItemPedidoCreateUpdateSerializer(many=True)
+class PedidoItemSerializer(serializers.ModelSerializer):
+    subtotal = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ItemPedido
+        fields = [
+            'id',
+            'produto',
+            'quantidade',
+            'preco',
+            'nome',
+            'cor',
+            'tamanho',
+            'imagem_url',
+            'subtotal',
+        ]
+        read_only_fields = fields
+
+    def get_subtotal(self, obj):
+        return obj.preco * obj.quantidade
+
+
+class PedidoSerializer(serializers.ModelSerializer):
+    itens = PedidoItemSerializer(many=True, read_only=True)
+    total = serializers.SerializerMethodField()
 
     class Meta:
         model = Pedido
-        fields = ('id', 'usuario', 'status', 'itens')
+        fields = [
+            'id',
+            'usuario',
+            'criado_em',
+            'status',
+            'mercado_pago_status',
+            'mercado_pago_status_detail',
+            'pago_em',
+            'itens',
+            'total',
+        ]
+        read_only_fields = fields
 
-    def create(self, validated_data):
-        itens_data = validated_data.pop('itens')
-        pedido = Pedido.objects.create(**validated_data)
-        for item_data in itens_data:
-            ItemPedido.objects.create(pedido=pedido, **item_data)
-        return pedido
-
-    def update(self, instance, validated_data):
-        itens_data = validated_data.pop('itens', [])
-        if itens_data:
-            instance.itens.all().delete()
-            for item_data in itens_data:
-                ItemPedido.objects.create(pedido=instance, **item_data)
-        return super().update(instance, validated_data)
-
-
-class PedidoListSerializer(ModelSerializer):
-    usuario = CharField(source='usuario.email', read_only=True)
-    itens = ItemPedidoListSerializer(many=True, read_only=True)
-    total_pedido = SerializerMethodField()
-
-    class Meta:
-        model = Pedido
-        fields = ('id', 'usuario', 'status', 'criado_em', 'total_pedido', 'itens')
-
-    def get_total_pedido(self, instance):
-        return sum([item.quantidade * item.produto.preco for item in instance.itens.all()])
-
-
-PedidoSerializer = PedidoListSerializer
-ItemPedidoSerializer = ItemPedidoListSerializer
+    def get_total(self, obj):
+        return sum(
+            (item.preco * item.quantidade for item in obj.itens.all()),
+            start=0,
+        )

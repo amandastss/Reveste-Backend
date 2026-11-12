@@ -1,15 +1,23 @@
-from rest_framework.viewsets import ModelViewSet
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.viewsets import ReadOnlyModelViewSet
 
 from ..models import Pedido
-from ..serializers.pedido import PedidoCreateUpdateSerializer, PedidoListSerializer
+from ..serializers.pedido import PedidoSerializer
 
 
-class PedidoViewSet(ModelViewSet):
-    queryset = Pedido.objects.all()
+class PedidoViewSet(ReadOnlyModelViewSet):
+    """Lista apenas pedidos do usuario autenticado.
 
-    def get_serializer_class(self):
-        if self.action in {'list', 'retrieve'}:
-            return PedidoListSerializer
-        if self.action in {'create', 'update', 'partial_update'}:
-            return PedidoCreateUpdateSerializer
-        return PedidoListSerializer
+    O carrinho e o fluxo de pagamento controlam criacao e mudancas de status.
+    """
+
+    serializer_class = PedidoSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return (
+            Pedido.objects
+            .filter(usuario=self.request.user)
+            .prefetch_related('itens__produto')
+            .order_by('-criado_em')
+        )

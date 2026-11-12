@@ -30,9 +30,9 @@ class ItemPedidoInline(admin.TabularInline):
 
 
 class PedidoAdmin(admin.ModelAdmin):
-    list_display = ('usuario', 'status', 'criado_em')
-    search_fields = ('usuario__email', 'status')
-    list_filter = ('usuario', 'status')
+    list_display = ('id', 'usuario', 'status', 'mercado_pago_status', 'criado_em')
+    search_fields = ('usuario__email', 'status', 'mercado_pago_payment_id')
+    list_filter = ('status', 'mercado_pago_status')
     ordering = ('-criado_em', 'usuario')
     inlines = [ItemPedidoInline]
 
@@ -109,5 +109,7 @@ admin.site.register(models.Seguidor)
 admin.site.register(models.HistoricoPesquisa)
 admin.site.register(models.Notificacao)
 admin.site.register(models.SessaoLogin)
-
 admin.site.register(models.Pedido, PedidoAdmin)
+admin.site.register(models.Pergunta)
+admin.site.register(models.Review)
+admin.site.register(models.ReviewImage)
