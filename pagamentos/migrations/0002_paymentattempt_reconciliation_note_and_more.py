@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0016_itempedido_item_pedido_quantidade_unica_and_more'),
+        ('core', '0022_notificacao_pergunta_notificacao_produto'),
         ('pagamentos', '0001_initial'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
