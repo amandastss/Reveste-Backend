@@ -1,8 +1,8 @@
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ReadOnlyModelViewSet
 
-from core.models import Pedido
-from core.serializers import PedidoSerializer
+from ..models import Pedido
+from ..serializers.pedido import PedidoSerializer
 
 
 class PedidoViewSet(ReadOnlyModelViewSet):

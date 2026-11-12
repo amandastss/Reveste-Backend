@@ -1,15 +1,13 @@
 from rest_framework import serializers
 
-from core.models import ItemPedido
+from ..models.itemPedido import ItemPedido
 
 
 class ItemPedidoSerializer(serializers.ModelSerializer):
-
     subtotal = serializers.SerializerMethodField()
 
     class Meta:
         model = ItemPedido
-
         fields = [
             'id',
             'pedido',
@@ -22,7 +20,6 @@ class ItemPedidoSerializer(serializers.ModelSerializer):
             'imagem_url',
             'subtotal',
         ]
-
         read_only_fields = [
             'id',
             'pedido',

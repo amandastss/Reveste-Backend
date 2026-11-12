@@ -16,7 +16,6 @@ class CarrinhoView(APIView):
     # GET /api/carrinho/
     # =========================
     def get(self, request):
-
         pedido, _ = Pedido.objects.get_or_create(usuario=request.user, status='PENDENTE')
 
         itens = pedido.itens.select_related('produto').all()
@@ -37,7 +36,6 @@ class CarrinhoView(APIView):
     # POST /api/carrinho/
     # =========================
     def post(self, request):
-
         product_id = request.data.get('productId')
 
         if not product_id:
@@ -45,15 +43,15 @@ class CarrinhoView(APIView):
 
         try:
             produto = Produto.objects.get(id=product_id, disponivel=True)
-
         except Produto.DoesNotExist:
             return Response(
-                {'detail': ('Produto não encontrado ou não está mais disponível.')}, status=status.HTTP_404_NOT_FOUND
+                {'detail': 'Produto não encontrado ou não está mais disponível.'},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         if produto.user == request.user:
             return Response(
-                {'detail': ('Você não pode adicionar seu próprio produto ao carrinho.')},
+                {'detail': 'Você não pode adicionar seu próprio produto ao carrinho.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -61,7 +59,7 @@ class CarrinhoView(APIView):
 
         # Não permite adicionar o mesmo produto duas vezes.
         if pedido.itens.filter(produto=produto).exists():
-            return Response({'detail': ('Este produto já está no seu carrinho.')}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Este produto já está no seu carrinho.'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Mantém a regra de um vendedor por pedido.
         primeiro_item = pedido.itens.select_related('produto__user').first()
@@ -100,7 +98,6 @@ class CarrinhoView(APIView):
     # DELETE /api/carrinho/
     # =========================
     def delete(self, request):
-
         product_id = request.data.get('productId')
 
         if not product_id:
@@ -126,7 +123,6 @@ class FinalizarCompraView(APIView):
 
     @staticmethod
     def _validar_item(item, usuario):
-
         produto = Produto.objects.filter(id=item.produto_id).first()
 
         if not produto:
@@ -145,11 +141,10 @@ class FinalizarCompraView(APIView):
 
     @transaction.atomic
     def post(self, request):
-
         pedido = Pedido.objects.select_for_update().filter(usuario=request.user, status='PENDENTE').first()
 
         if not pedido:
-            return Response({'detail': ('Nenhum pedido pendente encontrado.')}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Nenhum pedido pendente encontrado.'}, status=status.HTTP_404_NOT_FOUND)
 
         itens = list(pedido.itens.select_related('produto__user').all())
 
@@ -172,7 +167,7 @@ class FinalizarCompraView(APIView):
 
         if len(vendedores) != 1:
             return Response(
-                {'detail': ('Todos os produtos do carrinho devem pertencer ao mesmo vendedor.')},
+                {'detail': 'Todos os produtos do carrinho devem pertencer ao mesmo vendedor.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -193,15 +188,11 @@ class FinalizarCompraView(APIView):
             item.save(update_fields=['preco', 'nome', 'quantidade', 'imagem_url'])
 
         # O pedido continua pendente.
-        #
-        # A mudança para AGUARDANDO_PAGAMENTO será feita
-        # pelo fluxo do Mercado Pago.
-        #
-        # A mudança para PAGO será feita somente depois
-        # da confirmação de pagamento.
+        # A mudança para AGUARDANDO_PAGAMENTO será feita pelo fluxo do Mercado Pago.
+        # A mudança para PAGO será feita somente depois da confirmação de pagamento.
         return Response(
             {
-                'detail': ('Pedido preparado para pagamento.'),
+                'detail': 'Pedido preparado para pagamento.',
                 'pedido_id': pedido.id,
                 'status': pedido.status,
             },

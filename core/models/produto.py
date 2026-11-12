@@ -1,7 +1,7 @@
+from django.conf import settings
 from django.db import models
 
-from core.models.categoria import Categoria
-from core.models.user import User
+from .categoria import Categoria
 
 
 class Produto(models.Model):
@@ -11,14 +11,18 @@ class Produto(models.Model):
         ('usado', 'Usado'),
     ]
 
-    descricao = models.CharField(max_length=300)
     nome = models.CharField(max_length=60)
+    descricao = models.TextField()
     preco = models.DecimalField(max_digits=10, decimal_places=2)
     marca = models.CharField(max_length=60)
     condicao = models.CharField(max_length=10, choices=CONDICAO_CHOICES, default='novo')
     imagem = models.ImageField(upload_to='produtos/', null=True, blank=True)
     categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE, null=True, blank=True)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='produtos')
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='produtos',
+    )
     disponivel = models.BooleanField(default=True)
     reserva_pedido = models.ForeignKey(
         'core.Pedido',

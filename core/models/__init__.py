@@ -1,7 +1,6 @@
 from django.conf.locale import fr
 
 from .user import User , UserManager
-from .produto import Produto
 from .categoria import Categoria
 from .buscaImagem import BuscaImagem
 from .imagemProduto import ImagemProduto
@@ -15,4 +14,5 @@ from .notificacao import Notificacao
 from .sessaoLogin import SessaoLogin
 from .pergunta import Pergunta
 from .reviews import Review, ReviewImage
-
+from .produto import Produto
+from .compra import Compra, ItemCompra
