@@ -38,6 +38,7 @@ class CriarCheckoutView(APIView):
                 return {}
             interaction = (dados.get('point_of_interaction') or {}).get('transaction_data') or {}
             details = dados.get('transaction_details') or {}
+            breakpoint()
             return {
                 'payment_status': dados.get('status') or pedido.mercado_pago_status,
                 'payment_method_id': dados.get('payment_method_id'),
@@ -52,7 +53,8 @@ class CriarCheckoutView(APIView):
     @transaction.atomic
     def post(self, request):
         pedido_com_pagamento = (
-            Pedido.objects.select_for_update()
+            Pedido.objects
+            .select_for_update()
             .filter(usuario=request.user, status='AGUARDANDO_PAGAMENTO')
             .exclude(mercado_pago_payment_id__isnull=True)
             .order_by('-atualizado_em')
@@ -63,20 +65,24 @@ class CriarCheckoutView(APIView):
                 (Decimal(str(item.preco)) * item.quantidade for item in pedido_com_pagamento.itens.all()),
                 Decimal('0.00'),
             )
-            return Response({
-                'pedido_id': pedido_com_pagamento.id,
-                'status': pedido_com_pagamento.status,
-                'amount': float(total_existente),
-                'payer_email': request.user.email,
-                'payment_in_progress': True,
-                **self._instrucoes_pagamento(pedido_com_pagamento),
-            }, status=status.HTTP_200_OK)
+            return Response(
+                {
+                    'pedido_id': pedido_com_pagamento.id,
+                    'status': pedido_com_pagamento.status,
+                    'amount': float(total_existente),
+                    'payer_email': request.user.email,
+                    'payment_in_progress': True,
+                    **self._instrucoes_pagamento(pedido_com_pagamento),
+                },
+                status=status.HTTP_200_OK,
+            )
 
         # Retome primeiro o pedido que já reservou a peça. Criar outro pedido
         # PENDENTE antes dele fazia o checkout disputar a própria reserva e
         # retornava 409 mesmo quando a compradora era a mesma.
         pedido = (
-            Pedido.objects.select_for_update()
+            Pedido.objects
+            .select_for_update()
             .filter(
                 usuario=request.user,
                 status='AGUARDANDO_PAGAMENTO',
@@ -87,7 +93,8 @@ class CriarCheckoutView(APIView):
         )
         if pedido is None:
             pedido = (
-                Pedido.objects.select_for_update()
+                Pedido.objects
+                .select_for_update()
                 .filter(usuario=request.user, status='PENDENTE')
                 .order_by('id')
                 .first()
@@ -108,14 +115,17 @@ class CriarCheckoutView(APIView):
                 (Decimal(str(item.preco)) * item.quantidade for item in itens),
                 Decimal('0.00'),
             )
-            return Response({
-                'pedido_id': pedido.id,
-                'status': pedido.status,
-                'amount': float(total_existente),
-                'payer_email': request.user.email,
-                'payment_in_progress': True,
-                'payment_status': pedido.mercado_pago_status,
-            }, status=status.HTTP_200_OK)
+            return Response(
+                {
+                    'pedido_id': pedido.id,
+                    'status': pedido.status,
+                    'amount': float(total_existente),
+                    'payer_email': request.user.email,
+                    'payment_in_progress': True,
+                    'payment_status': pedido.mercado_pago_status,
+                },
+                status=status.HTTP_200_OK,
+            )
 
         agora = timezone.now()
         vendedores = set()
@@ -137,14 +147,11 @@ class CriarCheckoutView(APIView):
             if not produto.disponivel:
                 reserva_atual = (
                     Pedido.objects.filter(pk=produto.reserva_pedido_id).only('usuario_id').first()
-                    if produto.reserva_pedido_id else None
+                    if produto.reserva_pedido_id
+                    else None
                 )
-                reserva_da_compradora = (
-                    produto.reserva_pedido_id == pedido.id
-                    or (
-                        reserva_atual is not None
-                        and reserva_atual.usuario_id == request.user.id
-                    )
+                reserva_da_compradora = produto.reserva_pedido_id == pedido.id or (
+                    reserva_atual is not None and reserva_atual.usuario_id == request.user.id
                 )
                 if not reserva_da_compradora:
                     return Response(
@@ -168,35 +175,21 @@ class CriarCheckoutView(APIView):
                 )
 
             if produto.reserva_pedido_id and produto.reserva_pedido_id != pedido.id:
-                reserva_anterior = (
-                    Pedido.objects.select_for_update()
-                    .filter(pk=produto.reserva_pedido_id)
-                    .first()
-                )
-                reserva_expirada = (
-                    produto.reservado_ate is None
-                    or produto.reservado_ate <= agora
-                )
+                reserva_anterior = Pedido.objects.select_for_update().filter(pk=produto.reserva_pedido_id).first()
+                reserva_expirada = produto.reservado_ate is None or produto.reservado_ate <= agora
                 # Só podemos tomar a reserva de um checkout abandonado se o
                 # gateway ainda não tiver sido chamado. Uma chave de idempotência
                 # sem ID de pagamento é ambígua e exige reconciliação, não liberação.
-                reserva_sem_cobranca = (
-                    reserva_anterior is None
-                    or (
-                        not reserva_anterior.mercado_pago_payment_id
-                        and not reserva_anterior.mercado_pago_idempotency_key
-                    )
+                reserva_sem_cobranca = reserva_anterior is None or (
+                    not reserva_anterior.mercado_pago_payment_id and not reserva_anterior.mercado_pago_idempotency_key
                 )
-                mesma_compradora = (
-                    reserva_anterior is not None
-                    and reserva_anterior.usuario_id == request.user.id
-                )
-                pode_liberar = reserva_sem_cobranca and (
-                    reserva_expirada or mesma_compradora
-                )
+                mesma_compradora = reserva_anterior is not None and reserva_anterior.usuario_id == request.user.id
+                pode_liberar = reserva_sem_cobranca and (reserva_expirada or mesma_compradora)
                 if not pode_liberar:
                     return Response(
-                        {'detail': f'A peça "{produto.nome}" está reservada em outro checkout. Se for uma tentativa anterior sua, consulte Meus pedidos ou aguarde a expiração da reserva.'},
+                        {
+                            'detail': f'A peça "{produto.nome}" está reservada em outro checkout. Se for uma tentativa anterior sua, consulte Meus pedidos ou aguarde a expiração da reserva.'
+                        },
                         status=status.HTTP_409_CONFLICT,
                     )
                 if reserva_anterior is not None and mesma_compradora:
@@ -240,13 +233,15 @@ class CriarCheckoutView(APIView):
         pedido.status = 'AGUARDANDO_PAGAMENTO'
         pedido.save(update_fields=['status', 'atualizado_em'])
 
-        return Response({
-            'pedido_id': pedido.id,
-            'status': pedido.status,
-            'amount': float(total),
-            'payer_email': request.user.email,
-        }, status=status.HTTP_200_OK)
-
+        return Response(
+            {
+                'pedido_id': pedido.id,
+                'status': pedido.status,
+                'amount': float(total),
+                'payer_email': request.user.email,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class ProcessarPagamentoView(APIView):
@@ -267,7 +262,9 @@ class ProcessarPagamentoView(APIView):
         except Exception:
             return (
                 None,
-                {'detail': 'Não foi possível comunicar com o Mercado Pago. Consulte o pedido antes de tentar novamente.'},
+                {
+                    'detail': 'Não foi possível comunicar com o Mercado Pago. Consulte o pedido antes de tentar novamente.'
+                },
                 status.HTTP_502_BAD_GATEWAY,
             )
 
@@ -280,7 +277,8 @@ class ProcessarPagamentoView(APIView):
             if causas and isinstance(causas, list):
                 descricoes = [
                     str(causa.get('description') or causa.get('code'))
-                    for causa in causas[:3] if isinstance(causa, dict)
+                    for causa in causas[:3]
+                    if isinstance(causa, dict)
                 ]
                 if descricoes:
                     mensagem += ' ' + ' '.join(descricoes)
@@ -342,12 +340,14 @@ class ProcessarPagamentoView(APIView):
         pedido.mercado_pago_payment_id = str(dados.get('id'))
         pedido.mercado_pago_status = dados.get('status')
         pedido.mercado_pago_status_detail = dados.get('status_detail')
-        pedido.save(update_fields=[
-            'mercado_pago_payment_id',
-            'mercado_pago_status',
-            'mercado_pago_status_detail',
-            'atualizado_em',
-        ])
+        pedido.save(
+            update_fields=[
+                'mercado_pago_payment_id',
+                'mercado_pago_status',
+                'mercado_pago_status_detail',
+                'atualizado_em',
+            ]
+        )
 
     @staticmethod
     def _resposta_pagamento(dados, pedido):
@@ -399,32 +399,44 @@ class ProcessarPagamentoView(APIView):
             pedido.mercado_pago_payment_id = str(payment_id)
             pedido.mercado_pago_status = mp_status
             pedido.mercado_pago_status_detail = dados.get('status_detail')
-            pedido.save(update_fields=[
-                'mercado_pago_payment_id', 'mercado_pago_status',
-                'mercado_pago_status_detail', 'atualizado_em',
-            ])
+            pedido.save(
+                update_fields=[
+                    'mercado_pago_payment_id',
+                    'mercado_pago_status',
+                    'mercado_pago_status_detail',
+                    'atualizado_em',
+                ]
+            )
         elif mp_status in {'rejected', 'cancelled'}:
             pedido.mercado_pago_payment_id = str(payment_id)
             pedido.mercado_pago_status = mp_status
             pedido.mercado_pago_status_detail = dados.get('status_detail')
             pedido.status = 'CANCELADO'
             Produto.objects.filter(reserva_pedido=pedido).update(reserva_pedido=None, reservado_ate=None)
-            pedido.save(update_fields=[
-                'status', 'mercado_pago_payment_id', 'mercado_pago_status',
-                'mercado_pago_status_detail', 'atualizado_em',
-            ])
+            pedido.save(
+                update_fields=[
+                    'status',
+                    'mercado_pago_payment_id',
+                    'mercado_pago_status',
+                    'mercado_pago_status_detail',
+                    'atualizado_em',
+                ]
+            )
         else:
             return Response(
                 {'detail': 'O Mercado Pago retornou um estado de pagamento que exige verificação.'},
                 status=status.HTTP_409_CONFLICT,
             )
 
-        return Response({
-            'id': payment_id,
-            'status': mp_status,
-            'status_detail': dados.get('status_detail'),
-            'pedido_id': pedido.id,
-        }, status=status.HTTP_200_OK)
+        return Response(
+            {
+                'id': payment_id,
+                'status': mp_status,
+                'status_detail': dados.get('status_detail'),
+                'pedido_id': pedido.id,
+            },
+            status=status.HTTP_200_OK,
+        )
 
     @transaction.atomic
     def post(self, request):
@@ -437,11 +449,7 @@ class ProcessarPagamentoView(APIView):
         except (TypeError, ValueError):
             return Response({'detail': 'ID do pedido inválido.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        pedido = (
-            Pedido.objects.select_for_update()
-            .filter(id=pedido_id, usuario=request.user)
-            .first()
-        )
+        pedido = Pedido.objects.select_for_update().filter(id=pedido_id, usuario=request.user).first()
         if pedido is None:
             return Response({'detail': 'Pedido não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
         if pedido.status == 'PAGO':
@@ -453,7 +461,9 @@ class ProcessarPagamentoView(APIView):
             )
         if pedido.mercado_pago_payment_id:
             return Response(
-                {'detail': 'Este pedido já possui um pagamento iniciado. Consulte o estado do pedido antes de tentar novamente.'},
+                {
+                    'detail': 'Este pedido já possui um pagamento iniciado. Consulte o estado do pedido antes de tentar novamente.'
+                },
                 status=status.HTTP_409_CONFLICT,
             )
 
