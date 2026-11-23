@@ -6,11 +6,7 @@ from ..serializers.pedido import PedidoSerializer
 
 
 class PedidoViewSet(ReadOnlyModelViewSet):
-    """Lista apenas pedidos do usuario autenticado.
-
-    O carrinho e o fluxo de pagamento controlam criacao e mudancas de status.
-    """
-
+    """Lista e consulta exclusivamente os pedidos do usuário autenticado."""
     serializer_class = PedidoSerializer
     permission_classes = [IsAuthenticated]
 
