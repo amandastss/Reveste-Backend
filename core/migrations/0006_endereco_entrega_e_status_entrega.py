@@ -10,7 +10,7 @@ def iniciar_entregas_pedidos_pagos(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('core', '0005_user_created_at'),
+        ('core', '0023_alter_produto_descricao_compra_itemcompra'),
     ]
 
     operations = [
