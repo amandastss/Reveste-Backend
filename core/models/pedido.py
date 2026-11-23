@@ -9,6 +9,14 @@ class Pedido(models.Model):
         ('PAGO', 'Pago'),
         ('CANCELADO', 'Cancelado'),
     ]
+    STATUS_ENTREGA_CHOICES = [
+        ('NAO_INICIADA', 'Não iniciada'),
+        ('AGUARDANDO_PREPARACAO', 'Aguardando preparação'),
+        ('ENVIADO', 'Enviado'),
+        ('EM_TRANSITO', 'Em trânsito'),
+        ('SAIU_PARA_ENTREGA', 'Saiu para entrega'),
+        ('ENTREGUE', 'Entregue'),
+    ]
 
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -16,10 +24,12 @@ class Pedido(models.Model):
         related_name='pedidos',
     )
     status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='PENDENTE')
+    status_entrega = models.CharField(
+        max_length=30, choices=STATUS_ENTREGA_CHOICES, default='NAO_INICIADA'
+    )
+    endereco_entrega = models.JSONField(default=dict, blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
-
-    # Campo legado mantido para compatibilidade com dados anteriores.
     mercado_pago_preference_id = models.CharField(max_length=255, null=True, blank=True, unique=True)
     mercado_pago_payment_id = models.CharField(max_length=255, null=True, blank=True, unique=True)
     mercado_pago_idempotency_key = models.CharField(max_length=36, null=True, blank=True, unique=True)

@@ -1,7 +1,7 @@
 from rest_framework.viewsets import ModelViewSet
 
-from core.models import Seguidor
-from core.serializers import SeguidorSerializer
+from ..models import Seguidor
+from ..serializers import SeguidorSerializer
 
 
 class SeguidorViewSet(ModelViewSet):

@@ -9,15 +9,8 @@ class PedidoItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = ItemPedido
         fields = [
-            'id',
-            'produto',
-            'quantidade',
-            'preco',
-            'nome',
-            'cor',
-            'tamanho',
-            'imagem_url',
-            'subtotal',
+            'id', 'produto', 'quantidade', 'preco', 'nome', 'cor',
+            'tamanho', 'imagem_url', 'subtotal',
         ]
         read_only_fields = fields
 
@@ -32,15 +25,9 @@ class PedidoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pedido
         fields = [
-            'id',
-            'usuario',
-            'criado_em',
-            'status',
-            'mercado_pago_status',
-            'mercado_pago_status_detail',
-            'pago_em',
-            'itens',
-            'total',
+            'id', 'usuario', 'criado_em', 'atualizado_em', 'status',
+            'status_entrega', 'endereco_entrega', 'mercado_pago_status',
+            'mercado_pago_status_detail', 'pago_em', 'itens', 'total',
         ]
         read_only_fields = fields
 

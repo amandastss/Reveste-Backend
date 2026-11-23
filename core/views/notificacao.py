@@ -1,8 +1,8 @@
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
 
-from core.models import Notificacao
-from core.serializers import NotificacaoSerializer
+from ..models import Notificacao
+from ..serializers import NotificacaoSerializer
 
 
 class NotificacaoViewSet(ModelViewSet):

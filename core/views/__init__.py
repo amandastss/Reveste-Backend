@@ -6,7 +6,7 @@ from .categoria import CategoriaViewSet
 from .buscaImagem import BuscaImagemViewSet 
 from .imagemProduto import ImagemProdutoViewSet 
 from .favorito import FavoritoViewSet 
-from .pedido import PedidoViewSet
+from .pedido import PedidoViewSet, AtualizarEntregaPedidoView
 from .itemPedido import ItemPedidoViewSet
 from .venda import VendaViewSet
 from .seguidor import SeguidorViewSet

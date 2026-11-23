@@ -16,7 +16,6 @@ class CarrinhoView(APIView):
     # GET /api/carrinho/
     # =========================
     def get(self, request):
-
         pedido, _ = Pedido.objects.get_or_create(usuario=request.user, status='PENDENTE')
 
         itens = pedido.itens.select_related('produto').all()
@@ -37,7 +36,6 @@ class CarrinhoView(APIView):
     # POST /api/carrinho/
     # =========================
     def post(self, request):
-
         product_id = request.data.get('productId')
 
         if not product_id:
@@ -45,15 +43,15 @@ class CarrinhoView(APIView):
 
         try:
             produto = Produto.objects.get(id=product_id, disponivel=True)
-
         except Produto.DoesNotExist:
             return Response(
-                {'detail': ('Produto não encontrado ou não está mais disponível.')}, status=status.HTTP_404_NOT_FOUND
+                {'detail': 'Produto não encontrado ou não está mais disponível.'},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         if produto.user == request.user:
             return Response(
-                {'detail': ('Você não pode adicionar seu próprio produto ao carrinho.')},
+                {'detail': 'Você não pode adicionar seu próprio produto ao carrinho.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -61,7 +59,7 @@ class CarrinhoView(APIView):
 
         # Não permite adicionar o mesmo produto duas vezes.
         if pedido.itens.filter(produto=produto).exists():
-            return Response({'detail': ('Este produto já está no seu carrinho.')}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Este produto já está no seu carrinho.'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Mantém a regra de um vendedor por pedido.
         primeiro_item = pedido.itens.select_related('produto__user').first()
@@ -100,7 +98,6 @@ class CarrinhoView(APIView):
     # DELETE /api/carrinho/
     # =========================
     def delete(self, request):
-
         product_id = request.data.get('productId')
 
         if not product_id:
@@ -126,7 +123,6 @@ class FinalizarCompraView(APIView):
 
     @staticmethod
     def _validar_item(item, usuario):
-
         produto = Produto.objects.filter(id=item.produto_id).first()
 
         if not produto:
@@ -145,11 +141,10 @@ class FinalizarCompraView(APIView):
 
     @transaction.atomic
     def post(self, request):
-
         pedido = Pedido.objects.select_for_update().filter(usuario=request.user, status='PENDENTE').first()
 
         if not pedido:
-            return Response({'detail': ('Nenhum pedido pendente encontrado.')}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Nenhum pedido pendente encontrado.'}, status=status.HTTP_404_NOT_FOUND)
 
         itens = list(pedido.itens.select_related('produto__user').all())
 
@@ -172,9 +167,25 @@ class FinalizarCompraView(APIView):
 
         if len(vendedores) != 1:
             return Response(
-                {'detail': ('Todos os produtos do carrinho devem pertencer ao mesmo vendedor.')},
+                {'detail': 'Todos os produtos do carrinho devem pertencer ao mesmo vendedor.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        endereco = request.data.get('endereco_entrega') or request.user.endereco_entrega or {}
+        if not isinstance(endereco, dict):
+            return Response({'detail': 'Endereço de entrega inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+        campos_obrigatorios = ('cep', 'rua', 'numero', 'bairro', 'cidade', 'estado')
+        endereco = {str(chave): str(valor).strip() for chave, valor in endereco.items() if valor is not None}
+        faltantes = [campo for campo in campos_obrigatorios if not endereco.get(campo)]
+        if faltantes:
+            return Response(
+                {'detail': 'Informe o endereço de entrega completo antes de pagar.', 'campos': faltantes},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        endereco['cep'] = ''.join(caractere for caractere in endereco['cep'] if caractere.isdigit())
+        endereco['estado'] = endereco['estado'].upper()
+        if len(endereco['cep']) != 8 or len(endereco['estado']) != 2:
+            return Response({'detail': 'Confira o CEP e a UF do endereço de entrega.'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Atualiza os dados do pedido antes do pagamento,
         # mas NÃO marca o pedido como pago.
@@ -192,16 +203,18 @@ class FinalizarCompraView(APIView):
 
             item.save(update_fields=['preco', 'nome', 'quantidade', 'imagem_url'])
 
+        # Mantém o endereço no perfil e salva uma cópia no pedido.
+        request.user.endereco_entrega = endereco
+        request.user.save(update_fields=['endereco_entrega'])
+        pedido.endereco_entrega = endereco
+        pedido.save(update_fields=['endereco_entrega', 'atualizado_em'])
+
         # O pedido continua pendente.
-        #
-        # A mudança para AGUARDANDO_PAGAMENTO será feita
-        # pelo fluxo do Mercado Pago.
-        #
-        # A mudança para PAGO será feita somente depois
-        # da confirmação de pagamento.
+        # A mudança para AGUARDANDO_PAGAMENTO será feita pelo fluxo do Mercado Pago.
+        # A mudança para PAGO será feita somente depois da confirmação de pagamento.
         return Response(
             {
-                'detail': ('Pedido preparado para pagamento.'),
+                'detail': 'Pedido preparado para pagamento.',
                 'pedido_id': pedido.id,
                 'status': pedido.status,
             },

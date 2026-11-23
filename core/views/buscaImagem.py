@@ -1,7 +1,7 @@
 from rest_framework.viewsets import ModelViewSet
 
-from core.models import BuscaImagem
-from core.serializers import BuscaImagemSerializer
+from ..models import BuscaImagem
+from ..serializers import BuscaImagemSerializer
 
 
 class BuscaImagemViewSet(ModelViewSet):

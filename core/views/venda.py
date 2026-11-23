@@ -1,8 +1,8 @@
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ReadOnlyModelViewSet
 
-from core.models import Venda
-from core.serializers import VendaSerializer
+from ..models import Venda
+from ..serializers import VendaSerializer
 
 
 class VendaViewSet(ReadOnlyModelViewSet):

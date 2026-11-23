@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.db import models
 
-from core.models.produto import Produto
+from .produto import Produto
 
 
 class BuscaImagem(models.Model):
@@ -11,4 +11,4 @@ class BuscaImagem(models.Model):
     data_busca = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.usuario} - {self.data_busca}"
+        return f'{self.usuario} - {self.data_busca}'

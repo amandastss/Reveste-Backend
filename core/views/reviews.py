@@ -3,8 +3,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
-from core.models import Review, ReviewImage
-from core.serializers import ReviewSerializer
+from ..models import Review, ReviewImage
+from ..serializers import ReviewSerializer
 
 
 class ReviewViewSet(ModelViewSet):
@@ -57,10 +57,7 @@ class ReviewListCreateView(APIView):
 
     def post(self, request, produto_id):
         review = Review.objects.create(
-            user=request.user,
-            produto_id=produto_id,
-            stars=request.data.get('stars'),
-            text=request.data.get('text')
+            user=request.user, produto_id=produto_id, stars=request.data.get('stars'), text=request.data.get('text')
         )
 
         images = request.FILES.getlist('images')

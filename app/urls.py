@@ -25,6 +25,7 @@ from core.views import (
     ItemPedidoViewSet,
     NotificacaoViewSet,
     PedidoViewSet,
+    AtualizarEntregaPedidoView,
     PerguntaViewSet,
     ProdutoViewSet,
     ReviewListCreateView,
@@ -88,6 +89,7 @@ urlpatterns = [
     # API PRINCIPAL E REVIEWS
     path('api/', include(router.urls)),
     path('api/reviews/<int:produto_id>/', ReviewListCreateView.as_view()),
+    path('api/pedidos/<int:pedido_id>/entrega/', AtualizarEntregaPedidoView.as_view(), name='atualizar-entrega-pedido'),
 
     # UPLOADS E POSTS
     path('api/media/', include(uploader_router.urls)),

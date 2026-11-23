@@ -74,8 +74,23 @@ class MercadoPagoWebhookTests(TestCase):
         self.order.refresh_from_db()
         self.product.refresh_from_db()
         self.assertEqual(self.order.status, 'PAGO')
+        self.assertEqual(self.order.status_entrega, 'AGUARDANDO_PREPARACAO')
         self.assertFalse(self.product.disponivel)
         self.assertEqual(Venda.objects.filter(pedido=self.order).count(), 1)
+
+    @override_settings(MERCADO_PAGO_ACCESS_TOKEN='TEST_TOKEN', MERCADO_PAGO_WEBHOOK_SECRET=secret)
+    def test_repeated_approved_webhook_does_not_duplicate_sale(self):
+        payload = {
+            'id': 'payment-repeat', 'status': 'approved', 'status_detail': 'accredited',
+            'external_reference': str(self.order.id), 'transaction_amount': 89.90, 'currency_id': 'BRL',
+        }
+        first = self.send_webhook('payment-repeat', payload)
+        second = self.send_webhook('payment-repeat', payload)
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(Venda.objects.filter(pedido=self.order).count(), 1)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, 'PAGO')
 
     @override_settings(MERCADO_PAGO_ACCESS_TOKEN='TEST_TOKEN', MERCADO_PAGO_WEBHOOK_SECRET=secret)
     def test_pending_webhook_does_not_mark_order_paid(self):

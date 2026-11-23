@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from core.models.sessaoLogin import SessaoLogin
+from ..models.sessaoLogin import SessaoLogin
 
 
 class SessaoLoginSerializer(serializers.ModelSerializer):

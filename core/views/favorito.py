@@ -1,7 +1,7 @@
 from rest_framework.viewsets import ModelViewSet
 
-from core.models import Favorito
-from core.serializers import FavoritoSerializer
+from ..models import Favorito
+from ..serializers import FavoritoSerializer
 
 
 class FavoritoViewSet(ModelViewSet):
