@@ -38,7 +38,6 @@ class CriarCheckoutView(APIView):
                 return {}
             interaction = (dados.get('point_of_interaction') or {}).get('transaction_data') or {}
             details = dados.get('transaction_details') or {}
-            breakpoint()
             return {
                 'payment_status': dados.get('status') or pedido.mercado_pago_status,
                 'payment_method_id': dados.get('payment_method_id'),
