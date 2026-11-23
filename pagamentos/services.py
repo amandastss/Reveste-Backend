@@ -102,12 +102,13 @@ def confirmar_pagamento(
         produto.save(update_fields=['disponivel', 'reserva_pedido', 'reservado_ate'])
 
     pedido.status = 'PAGO'
+    pedido.status_entrega = 'AGUARDANDO_PREPARACAO'
     pedido.mercado_pago_payment_id = str(payment_id) if payment_id else pedido.mercado_pago_payment_id
     pedido.mercado_pago_status = payment_status
     pedido.mercado_pago_status_detail = status_detail
     pedido.pago_em = timezone.now()
     pedido.save(update_fields=[
-        'status', 'mercado_pago_payment_id', 'mercado_pago_status',
+        'status', 'status_entrega', 'mercado_pago_payment_id', 'mercado_pago_status',
         'mercado_pago_status_detail', 'pago_em', 'atualizado_em',
     ])
     Venda.objects.get_or_create(pedido=pedido, defaults={'vendedor_id': vendedor_id})
