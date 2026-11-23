@@ -1,6 +1,13 @@
 from django.db import migrations, models
 
 
+def iniciar_entregas_pedidos_pagos(apps, schema_editor):
+    Pedido = apps.get_model('core', 'Pedido')
+    Pedido.objects.filter(status='PAGO').update(
+        status_entrega='AGUARDANDO_PREPARACAO'
+    )
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ('core', '0005_user_created_at'),
@@ -32,5 +39,9 @@ class Migration(migrations.Migration):
                 default='NAO_INICIADA',
                 max_length=30,
             ),
+        ),
+        migrations.RunPython(
+            iniciar_entregas_pedidos_pagos,
+            migrations.RunPython.noop,
         ),
     ]
