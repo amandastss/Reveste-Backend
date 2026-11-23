@@ -57,12 +57,29 @@ class MercadoPagoWebhookView(APIView):
         if not token:
             logger.error('MERCADO_PAGO_ACCESS_TOKEN não configurado.')
             return None
+
+        if payment_id is None:
+            return None
+
         try:
-            response = mercadopago.SDK(token).payment().get(payment_id)
+            response = mercadopago.SDK(token).payment().get(str(payment_id))
         except Exception:
             logger.exception('Erro ao consultar pagamento no Mercado Pago.')
             return None
-        return response.get('response') if isinstance(response, dict) else None
+
+        if not isinstance(response, dict):
+            return None
+
+        if response.get('status') == 404:
+            logger.warning('Pagamento não encontrado no Mercado Pago: %s', payment_id)
+            return None
+
+        payload = response.get('response')
+        if isinstance(payload, dict) and payload.get('message'):
+            logger.warning('Erro ao consultar pagamento no Mercado Pago: %s', payload)
+            return None
+
+        return payload if isinstance(payload, dict) else response
 
     def _preparar_notificacao(self, request):
         payment_type = request.data.get('type') or request.query_params.get('type')
@@ -71,12 +88,18 @@ class MercadoPagoWebhookView(APIView):
 
         payment_data = request.data.get('data') or {}
         payment_id = payment_data.get('id') or request.query_params.get('data.id')
+        if payment_id is None:
+            return None, Response(
+                {'detail': 'ID do pagamento não informado.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        payment_id = str(payment_id).strip()
         if not payment_id:
             return None, Response(
                 {'detail': 'ID do pagamento não informado.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        if not self._validar_assinatura(request, str(payment_id)):
+        if not self._validar_assinatura(request, payment_id):
             logger.warning('Webhook Mercado Pago rejeitado: assinatura inválida.')
             return None, Response(
                 {'detail': 'Assinatura do webhook inválida.'},
@@ -123,12 +146,14 @@ class MercadoPagoWebhookView(APIView):
                     pedido_atual.mercado_pago_payment_id = str(dados['payment_id'])
                     pedido_atual.mercado_pago_status = pagamento.get('status')
                     pedido_atual.mercado_pago_status_detail = pagamento.get('status_detail')
-                    pedido_atual.save(update_fields=[
-                        'mercado_pago_payment_id',
-                        'mercado_pago_status',
-                        'mercado_pago_status_detail',
-                        'atualizado_em',
-                    ])
+                    pedido_atual.save(
+                        update_fields=[
+                            'mercado_pago_payment_id',
+                            'mercado_pago_status',
+                            'mercado_pago_status_detail',
+                            'atualizado_em',
+                        ]
+                    )
             return Response(
                 {'detail': 'O gateway aprovou o pagamento, mas o pedido precisa de conciliação manual.'},
                 status=status.HTTP_409_CONFLICT,
@@ -142,6 +167,7 @@ class MercadoPagoWebhookView(APIView):
         return None
 
     def post(self, request):
+        # breakpoint()
         dados, erro_response = self._preparar_notificacao(request)
         if erro_response:
             return erro_response
@@ -202,9 +228,12 @@ class MercadoPagoWebhookView(APIView):
                         )
                     pedido.save(update_fields=fields)
 
-        return Response({
-            'detail': 'Webhook processado.',
-            'pedido_id': pedido.id,
-            'payment_id': payment_id,
-            'status': pagamento_status,
-        }, status=status.HTTP_200_OK)
+        return Response(
+            {
+                'detail': 'Webhook processado.',
+                'pedido_id': pedido.id,
+                'payment_id': payment_id,
+                'status': pagamento_status,
+            },
+            status=status.HTTP_200_OK,
+        )
