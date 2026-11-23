@@ -171,6 +171,22 @@ class FinalizarCompraView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        endereco = request.data.get('endereco_entrega') or request.user.endereco_entrega or {}
+        if not isinstance(endereco, dict):
+            return Response({'detail': 'Endereço de entrega inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+        campos_obrigatorios = ('cep', 'rua', 'numero', 'bairro', 'cidade', 'estado')
+        endereco = {str(chave): str(valor).strip() for chave, valor in endereco.items() if valor is not None}
+        faltantes = [campo for campo in campos_obrigatorios if not endereco.get(campo)]
+        if faltantes:
+            return Response(
+                {'detail': 'Informe o endereço de entrega completo antes de pagar.', 'campos': faltantes},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        endereco['cep'] = ''.join(caractere for caractere in endereco['cep'] if caractere.isdigit())
+        endereco['estado'] = endereco['estado'].upper()
+        if len(endereco['cep']) != 8 or len(endereco['estado']) != 2:
+            return Response({'detail': 'Confira o CEP e a UF do endereço de entrega.'}, status=status.HTTP_400_BAD_REQUEST)
+
         # Atualiza os dados do pedido antes do pagamento,
         # mas NÃO marca o pedido como pago.
         for item in itens:
@@ -186,6 +202,12 @@ class FinalizarCompraView(APIView):
                 item.imagem_url = None
 
             item.save(update_fields=['preco', 'nome', 'quantidade', 'imagem_url'])
+
+        # Mantém o endereço no perfil e salva uma cópia no pedido.
+        request.user.endereco_entrega = endereco
+        request.user.save(update_fields=['endereco_entrega'])
+        pedido.endereco_entrega = endereco
+        pedido.save(update_fields=['endereco_entrega', 'atualizado_em'])
 
         # O pedido continua pendente.
         # A mudança para AGUARDANDO_PAGAMENTO será feita pelo fluxo do Mercado Pago.
